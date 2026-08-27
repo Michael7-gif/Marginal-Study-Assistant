@@ -23,10 +23,26 @@ dotenv.config({
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      console.error(`CORS blocked origin: ${origin}`);
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -42,6 +58,7 @@ app.get("/api/health", (req, res) => {
     message: "Marginal backend is running.",
   });
 });
+
 app.use("/api/progress", progressRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/quiz", quizRoutes);
@@ -65,9 +82,7 @@ async function startServer() {
     await initDb();
 
     app.listen(PORT, () => {
-      console.log(
-        `Marginal backend running at http://localhost:${PORT}`
-      );
+      console.log(`Marginal backend running on port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start Marginal backend:", error);

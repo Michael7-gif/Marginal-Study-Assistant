@@ -1,4 +1,4 @@
-
+import { apiPost } from "../../services/api";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -34,9 +34,7 @@ function Glossary() {
       );
 
       if (!savedDocument) {
-        throw new Error(
-          "No document has been selected yet."
-        );
+        throw new Error("No document has been selected yet.");
       }
 
       const parsedDocument = JSON.parse(savedDocument);
@@ -49,32 +47,12 @@ function Glossary() {
 
       setDocumentData(parsedDocument);
 
-      const response = await fetch(
-        "http://localhost:5000/api/glossary/generate",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            text: parsedDocument.text,
-          }),
-        }
-      );
+      const result = await apiPost("/api/glossary/generate", {
+        text: parsedDocument.text,
+      });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message ||
-            "The AI could not generate the glossary."
-        );
-      }
-
-      if (!result.data?.terms?.length) {
-        throw new Error(
-          "No glossary terms were generated."
-        );
+      if (!Array.isArray(result?.data?.terms) || result.data.terms.length === 0) {
+        throw new Error("No glossary terms were generated.");
       }
 
       setTerms(result.data.terms);
@@ -110,21 +88,16 @@ function Glossary() {
     });
   }, [terms, search]);
 
- 
-
   if (loading) {
     return (
       <div className="glossary-page">
         <header className="glossary-header">
-          <div className="glossary-eyebrow">
-            STUDY GLOSSARY
-          </div>
+          <div className="glossary-eyebrow">STUDY GLOSSARY</div>
 
           <h1>Glossary</h1>
 
           <p>
-            Important terms and concepts from your
-            document.
+            Important terms and concepts from your document.
           </p>
         </header>
 
@@ -133,13 +106,11 @@ function Glossary() {
             <div className="glossary-spinner" />
 
             <div>
-              <strong>
-                Building your glossary...
-              </strong>
+              <strong>Building your glossary...</strong>
 
               <p>
-                Marginal is identifying the important
-                terms in your document.
+                Marginal is identifying the important terms in
+                your document.
               </p>
             </div>
           </div>
@@ -148,20 +119,16 @@ function Glossary() {
     );
   }
 
- 
   if (error) {
     return (
       <div className="glossary-page">
         <header className="glossary-header">
-          <div className="glossary-eyebrow">
-            STUDY GLOSSARY
-          </div>
+          <div className="glossary-eyebrow">STUDY GLOSSARY</div>
 
           <h1>Glossary</h1>
 
           <p>
-            Important terms and concepts from your
-            document.
+            Important terms and concepts from your document.
           </p>
         </header>
 
@@ -170,9 +137,7 @@ function Glossary() {
             <AlertCircle size={22} />
 
             <div>
-              <h2>
-                Couldn't create the glossary
-              </h2>
+              <h2>Couldn't create the glossary</h2>
 
               <p>{error}</p>
 
@@ -201,31 +166,20 @@ function Glossary() {
     );
   }
 
-  
   return (
     <div className="glossary-page">
-
-      
-
       <header className="glossary-header">
-        <div className="glossary-eyebrow">
-          STUDY GLOSSARY
-        </div>
+        <div className="glossary-eyebrow">STUDY GLOSSARY</div>
 
         <h1>Glossary</h1>
 
         <p>
-          Important terms and concepts extracted from
-          your document.
+          Important terms and concepts extracted from your
+          document.
         </p>
       </header>
 
-      
-
       <main className="glossary-content">
-
-
-
         <button
           type="button"
           className="glossary-back-button"
@@ -235,8 +189,6 @@ function Glossary() {
           Back to Summary
         </button>
 
-        
-
         <div className="glossary-document">
           <div className="glossary-document-icon">
             <BookOpen size={22} />
@@ -244,17 +196,12 @@ function Glossary() {
 
           <div>
             <h2>
-              {documentData?.name ||
-                "Current Document"}
+              {documentData?.name || "Current Document"}
             </h2>
 
-            <p>
-              {terms.length} important terms
-            </p>
+            <p>{terms.length} important terms</p>
           </div>
         </div>
-
-        
 
         <div className="glossary-intro">
           <div className="glossary-intro-icon">
@@ -262,18 +209,14 @@ function Glossary() {
           </div>
 
           <div>
-            <h2>
-              Terms to remember
-            </h2>
+            <h2>Terms to remember</h2>
 
             <p>
-              These are the concepts Marginal thinks
-              are most useful for studying this document.
+              These are the concepts Marginal thinks are most
+              useful for studying this document.
             </p>
           </div>
         </div>
-
-        
 
         <div className="glossary-search">
           <Search size={18} />
@@ -282,27 +225,20 @@ function Glossary() {
             type="text"
             placeholder="Search terms..."
             value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
 
-        
-
         <div className="glossary-results">
-
           {filteredTerms.length === 0 ? (
             <div className="glossary-empty">
               <Search size={22} />
 
-              <h3>
-                No terms found
-              </h3>
+              <h3>No terms found</h3>
 
               <p>
-                Try searching for another word or
-                clear the search field.
+                Try searching for another word or clear the
+                search field.
               </p>
             </div>
           ) : (
@@ -316,10 +252,7 @@ function Glossary() {
                 </div>
 
                 <div className="glossary-card-content">
-
-                  <h2>
-                    {item.term}
-                  </h2>
+                  <h2>{item.term}</h2>
 
                   <p className="glossary-definition">
                     {item.definition}
@@ -327,30 +260,21 @@ function Glossary() {
 
                   {item.importance && (
                     <div className="glossary-importance">
-                      <strong>
-                        Why it matters
-                      </strong>
+                      <strong>Why it matters</strong>
 
-                      <p>
-                        {item.importance}
-                      </p>
+                      <p>{item.importance}</p>
                     </div>
                   )}
-
                 </div>
               </article>
             ))
           )}
-
         </div>
-
-        
 
         <div className="glossary-footer">
-          Glossary generated by Marginal AI using
-          information from your document.
+          Glossary generated by Marginal AI using information
+          from your document.
         </div>
-
       </main>
     </div>
   );
