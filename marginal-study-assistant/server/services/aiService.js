@@ -13,7 +13,8 @@ dotenv.config({
 });
 
 const apiKey = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+const MODEL =
+  process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
 if (!apiKey) {
   throw new Error(
@@ -57,7 +58,9 @@ function parseJson(text, label) {
   try {
     return JSON.parse(text);
   } catch {
-    console.error(`Gemini returned invalid ${label} JSON:`);
+    console.error(
+      `Gemini returned invalid ${label} JSON:`
+    );
     console.error(text);
 
     throw new Error(
@@ -120,27 +123,38 @@ function normalizeQuestion(question) {
   const normalized = {
     question: String(question.question || "").trim(),
     type: String(question.type || "").trim(),
-    difficulty: String(question.difficulty || "").trim(),
+    difficulty: String(
+      question.difficulty || ""
+    ).trim(),
     answer: String(question.answer || "").trim(),
   };
 
-  if (!normalized.question || !normalized.answer) {
-    return null;
-  }
-
   if (
-    ![
-      "multiple-choice",
-      "true-false",
-      "short-answer",
-      "essay",
-    ].includes(normalized.type)
+    !normalized.question ||
+    !normalized.answer
   ) {
     return null;
   }
 
+  const allowedTypes = [
+    "multiple-choice",
+    "true-false",
+    "short-answer",
+    "essay",
+  ];
+
+  if (!allowedTypes.includes(normalized.type)) {
+    return null;
+  }
+
+  const allowedDifficulties = [
+    "easy",
+    "medium",
+    "hard",
+  ];
+
   if (
-    !["easy", "medium", "hard"].includes(
+    !allowedDifficulties.includes(
       normalized.difficulty
     )
   ) {
@@ -155,13 +169,22 @@ function normalizeQuestion(question) {
       return null;
     }
 
-    normalized.options = question.options.map((option) =>
-      String(option).trim()
+    normalized.options = question.options.map(
+      (option) => String(option).trim()
     );
 
     if (
-      normalized.options.some((option) => !option) ||
-      !normalized.options.includes(normalized.answer)
+      normalized.options.some(
+        (option) => !option
+      )
+    ) {
+      return null;
+    }
+
+    if (
+      !normalized.options.includes(
+        normalized.answer
+      )
     ) {
       return null;
     }
@@ -170,7 +193,11 @@ function normalizeQuestion(question) {
   if (normalized.type === "true-false") {
     normalized.options = ["True", "False"];
 
-    if (!["True", "False"].includes(normalized.answer)) {
+    if (
+      !["True", "False"].includes(
+        normalized.answer
+      )
+    ) {
       return null;
     }
   }
@@ -178,15 +205,20 @@ function normalizeQuestion(question) {
   return normalized;
 }
 
+function questionKey(question) {
+  return String(question.question || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function removeDuplicateQuestions(questions) {
   const seen = new Set();
   const unique = [];
 
   for (const question of questions) {
-    const key = question.question
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
+    const key = questionKey(question);
 
     if (!key || seen.has(key)) {
       continue;
@@ -257,7 +289,7 @@ Every question must contain its type.
 function getDifficultyInstructions(level) {
   if (level === "mixed") {
     return `
-Use a sensible mixture of easy, medium, and hard questions.
+Use a mixture of easy, medium, and hard questions.
 `;
   }
 
@@ -266,13 +298,39 @@ All questions must be ${level} difficulty.
 `;
 }
 
-async function generateQuizBatch(
+function buildPreviousQuestionList(
+  existingQuestions,
+  maxQuestions = 30
+) {
+  if (!existingQuestions?.length) {
+    return "";
+  }
+
+  const recent = existingQuestions.slice(
+    -maxQuestions
+  );
+
+  return `
+These questions have already been generated.
+
+Do NOT repeat them or closely rephrase them:
+
+${recent
+  .map(
+    (question, index) =>
+      `${index + 1}. ${question.question}`
+  )
+  .join("\n")}
+`;
+}
+
+async function generateQuizBatch({
   text,
   batchSize,
   questionType,
   difficulty,
-  existingQuestions = []
-) {
+  existingQuestions,
+}) {
   const typeInstructions =
     getTypeInstructions(questionType);
 
@@ -280,36 +338,32 @@ async function generateQuizBatch(
     getDifficultyInstructions(difficulty);
 
   const previousQuestions =
-    existingQuestions.length > 0
-      ? `
-Previously generated questions:
-
-${existingQuestions
-  .map(
-    (question, index) =>
-      `${index + 1}. ${question.question}`
-  )
-  .join("\n")}
-
-Do NOT repeat or closely rephrase any of these questions.
-`
-      : "";
+    buildPreviousQuestionList(
+      existingQuestions,
+      30
+    );
 
   const prompt = `
 You are Marginal, an AI study assistant.
 
-Create EXACTLY ${batchSize} new quiz questions from the student's document.
+Generate EXACTLY ${batchSize} NEW quiz questions.
+
+The questions must be based ONLY on the student's document.
 
 IMPORTANT:
 - Return exactly ${batchSize} questions.
 - Do not return fewer.
 - Do not return more.
-- Do not include explanations outside the JSON.
 - Return ONLY valid JSON.
-- Every question must be based ONLY on the document.
+- Do not include markdown.
+- Do not include explanations outside JSON.
 - Do not invent facts.
-- Do not repeat questions.
-- Cover different parts of the document when possible.
+- Do not repeat existing questions.
+- Do not closely rephrase existing questions.
+- Each question must test a different aspect, fact, relationship, definition, explanation, comparison, application, or implication found in the document.
+- Questions may examine the same topic from genuinely different angles.
+- Make every question meaningfully different.
+- Make sure every answer is directly supported by the document.
 
 QUESTION TYPE:
 ${questionType}
@@ -323,7 +377,7 @@ ${difficultyInstructions}
 
 ${previousQuestions}
 
-Return exactly this JSON structure:
+Return exactly:
 
 {
   "questions": [
@@ -342,7 +396,7 @@ Return exactly this JSON structure:
   ]
 }
 
-For true-false questions use:
+For true-false:
 
 {
   "question": "Question",
@@ -352,7 +406,7 @@ For true-false questions use:
   "answer": "True"
 }
 
-For short-answer questions use:
+For short-answer:
 
 {
   "question": "Question",
@@ -361,7 +415,7 @@ For short-answer questions use:
   "answer": "Correct answer"
 }
 
-For essay questions use:
+For essay:
 
 {
   "question": "Question",
@@ -387,7 +441,30 @@ ${text}
     .map(normalizeQuestion)
     .filter(Boolean);
 
-  return removeDuplicateQuestions(normalized);
+  return removeDuplicateQuestions(
+    normalized
+  );
+}
+
+async function generateReplacementQuestions({
+  text,
+  needed,
+  questionType,
+  difficulty,
+  existingQuestions,
+}) {
+  const replacementBatchSize = Math.min(
+    needed,
+    5
+  );
+
+  return generateQuizBatch({
+    text,
+    batchSize: replacementBatchSize,
+    questionType,
+    difficulty,
+    existingQuestions,
+  });
 }
 
 export async function generateQuiz(
@@ -397,7 +474,9 @@ export async function generateQuiz(
   difficulty = "mixed"
 ) {
   if (!text?.trim()) {
-    throw new Error("No document text was provided.");
+    throw new Error(
+      "No document text was provided."
+    );
   }
 
   const allowedCounts = [
@@ -427,7 +506,9 @@ export async function generateQuiz(
     "mixed",
   ];
 
-  const type = allowedTypes.includes(questionType)
+  const type = allowedTypes.includes(
+    questionType
+  )
     ? questionType
     : "mixed";
 
@@ -438,97 +519,178 @@ export async function generateQuiz(
     "mixed",
   ];
 
-  const level = allowedDifficulties.includes(difficulty)
+  const level = allowedDifficulties.includes(
+    difficulty
+  )
     ? difficulty
     : "mixed";
 
-  const questions = [];
+  let questions = [];
 
-  const batchSize = 10;
-  const maxAttemptsPerBatch = 3;
+  const batchSize = 5;
+  const maxBatchAttempts = 4;
 
-  const totalBatches = Math.ceil(count / batchSize);
+  const maxTotalRequests =
+    Math.max(10, count * 2);
 
-  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-    const remaining = count - questions.length;
-    const requestedBatchSize = Math.min(
-      batchSize,
-      remaining
-    );
+  let totalRequests = 0;
+
+  while (
+    questions.length < count &&
+    totalRequests < maxTotalRequests
+  ) {
+    const remaining =
+      count - questions.length;
+
+    const requested =
+      Math.min(batchSize, remaining);
 
     let batchQuestions = [];
 
     for (
       let attempt = 1;
-      attempt <= maxAttemptsPerBatch;
+      attempt <= maxBatchAttempts;
       attempt++
     ) {
+      totalRequests++;
+
       try {
-        batchQuestions = await generateQuizBatch(
-          text,
-          requestedBatchSize,
-          type,
-          level,
-          questions
+        batchQuestions =
+          await generateQuizBatch({
+            text,
+            batchSize: requested,
+            questionType: type,
+            difficulty: level,
+            existingQuestions: questions,
+          });
+
+        const existingKeys = new Set(
+          questions.map(questionKey)
         );
 
-        if (batchQuestions.length >= requestedBatchSize) {
+        batchQuestions =
+          batchQuestions.filter(
+            (question) =>
+              !existingKeys.has(
+                questionKey(question)
+              )
+          );
+
+        if (
+          batchQuestions.length >= requested
+        ) {
           break;
         }
 
         console.warn(
-          `Quiz batch ${batchIndex + 1}: AI returned ${batchQuestions.length}/${requestedBatchSize} valid questions. Retrying...`
+          `Quiz batch returned ${batchQuestions.length}/${requested} unique valid questions. Retrying.`
         );
       } catch (error) {
         console.error(
-          `Quiz batch ${batchIndex + 1}, attempt ${attempt} failed:`,
+          `Quiz generation attempt ${attempt} failed:`,
           error?.message || error
         );
 
-        if (attempt === maxAttemptsPerBatch) {
-          throw error;
+        if (
+          attempt === maxBatchAttempts
+        ) {
+          batchQuestions = [];
         }
+      }
+
+      if (totalRequests >= maxTotalRequests) {
+        break;
       }
     }
 
-    if (batchQuestions.length === 0) {
-      throw new Error(
-        `Could not generate quiz batch ${batchIndex + 1}. Please try again.`
+    if (batchQuestions.length > 0) {
+      questions.push(
+        ...batchQuestions.slice(0, requested)
+      );
+
+      questions =
+        removeDuplicateQuestions(
+          questions
+        );
+
+      console.log(
+        `Quiz progress: ${questions.length}/${count}`
       );
     }
 
-    const needed = count - questions.length;
+    if (
+      batchQuestions.length === 0 &&
+      questions.length < count
+    ) {
+      try {
+        const replacement =
+          await generateReplacementQuestions({
+            text,
+            needed: remaining,
+            questionType: type,
+            difficulty: level,
+            existingQuestions: questions,
+          });
 
-    questions.push(
-      ...batchQuestions.slice(0, needed)
-    );
+        const existingKeys = new Set(
+          questions.map(questionKey)
+        );
 
-    console.log(
-      `Quiz progress: ${questions.length}/${count} questions generated.`
-    );
+        const newQuestions =
+          replacement.filter(
+            (question) =>
+              !existingKeys.has(
+                questionKey(question)
+              )
+          );
+
+        questions.push(...newQuestions);
+
+        questions =
+          removeDuplicateQuestions(
+            questions
+          );
+
+        console.log(
+          `Replacement progress: ${questions.length}/${count}`
+        );
+      } catch (error) {
+        console.error(
+          "Replacement generation failed:",
+          error?.message || error
+        );
+      }
+    }
   }
 
-  const finalQuestions =
+  questions =
     removeDuplicateQuestions(questions);
 
-  if (finalQuestions.length < count) {
+  if (questions.length < count) {
     throw new Error(
-      `Could not generate exactly ${count} unique questions. Only ${finalQuestions.length} valid questions were generated. Please try again.`
+      `Could not generate exactly ${count} unique questions. Only ${questions.length} valid questions were generated. Please try again.`
     );
   }
 
   return JSON.stringify({
-    questions: finalQuestions.slice(0, count),
+    questions: questions.slice(0, count),
   });
 }
 
-export async function generateQA(text, question) {
+export async function generateQA(
+  text,
+  question
+) {
   if (!text?.trim()) {
-    throw new Error("No document text was provided.");
+    throw new Error(
+      "No document text was provided."
+    );
   }
 
   if (!question?.trim()) {
-    throw new Error("No question was provided.");
+    throw new Error(
+      "No question was provided."
+    );
   }
 
   const prompt = `
@@ -557,7 +719,9 @@ ${question}
 
 export async function generateGlossary(text) {
   if (!text?.trim()) {
-    throw new Error("No document text was provided.");
+    throw new Error(
+      "No document text was provided."
+    );
   }
 
   const prompt = `
@@ -588,7 +752,9 @@ ${text}
 
 export async function generateSections(text) {
   if (!text?.trim()) {
-    throw new Error("No document text was provided.");
+    throw new Error(
+      "No document text was provided."
+    );
   }
 
   const prompt = `
@@ -619,4 +785,3 @@ ${text}
 
   return generateJson(prompt);
 }
-
