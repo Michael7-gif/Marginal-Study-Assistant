@@ -1,3 +1,4 @@
+
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { fileURLToPath } from "url";
@@ -49,7 +50,7 @@ async function generateJson(prompt) {
 
     throw new Error(
       error?.message ||
-        "Gemini could not process the document. Check the API key, model access, and server configuration."
+        "Gemini could not process the document."
     );
   }
 }
@@ -69,52 +70,6 @@ function parseJson(text, label) {
   }
 }
 
-export async function generateSummary(text) {
-  if (!text?.trim()) {
-    throw new Error("No document text was provided.");
-  }
-
-  const prompt = `
-You are Marginal, an AI study assistant.
-
-Analyze the student's document carefully and create study material based ONLY on the document.
-
-Return ONLY valid JSON using exactly this structure:
-
-{
-  "shortSummary": "A concise summary.",
-  "detailedSummary": "A detailed explanation.",
-  "keyPoints": [
-    "Important point 1",
-    "Important point 2"
-  ],
-  "importantTerms": [
-    {
-      "term": "Term",
-      "meaning": "Meaning based on the document"
-    }
-  ],
-  "questions": [
-    {
-      "question": "Question based on the document",
-      "answer": "Correct answer based on the document"
-    }
-  ]
-}
-
-Requirements:
-- Generate exactly 10 study questions.
-- Questions must be based ONLY on the document.
-- Do not invent information.
-- Return ONLY JSON.
-
-DOCUMENT:
-${text}
-`;
-
-  return generateJson(prompt);
-}
-
 function normalizeQuestion(question) {
   if (!question || typeof question !== "object") {
     return null;
@@ -122,10 +77,12 @@ function normalizeQuestion(question) {
 
   const normalized = {
     question: String(question.question || "").trim(),
-    type: String(question.type || "").trim(),
-    difficulty: String(
-      question.difficulty || ""
-    ).trim(),
+    type: String(question.type || "")
+      .trim()
+      .toLowerCase(),
+    difficulty: String(question.difficulty || "")
+      .trim()
+      .toLowerCase(),
     answer: String(question.answer || "").trim(),
   };
 
@@ -147,14 +104,8 @@ function normalizeQuestion(question) {
     return null;
   }
 
-  const allowedDifficulties = [
-    "easy",
-    "medium",
-    "hard",
-  ];
-
   if (
-    !allowedDifficulties.includes(
+    !["easy", "medium", "hard"].includes(
       normalized.difficulty
     )
   ) {
@@ -169,8 +120,8 @@ function normalizeQuestion(question) {
       return null;
     }
 
-    normalized.options = question.options.map(
-      (option) => String(option).trim()
+    normalized.options = question.options.map((option) =>
+      String(option).trim()
     );
 
     if (
@@ -181,25 +132,30 @@ function normalizeQuestion(question) {
       return null;
     }
 
-    if (
-      !normalized.options.includes(
-        normalized.answer
-      )
-    ) {
+    const correctOption = normalized.options.find(
+      (option) =>
+        option.toLowerCase() ===
+        normalized.answer.toLowerCase()
+    );
+
+    if (!correctOption) {
       return null;
     }
+
+    normalized.answer = correctOption;
   }
 
   if (normalized.type === "true-false") {
     normalized.options = ["True", "False"];
 
-    if (
-      !["True", "False"].includes(
-        normalized.answer
-      )
-    ) {
+    const answer = normalized.answer.toLowerCase();
+
+    if (!["true", "false"].includes(answer)) {
       return null;
     }
+
+    normalized.answer =
+      answer === "true" ? "True" : "False";
   }
 
   return normalized;
@@ -232,58 +188,57 @@ function removeDuplicateQuestions(questions) {
 }
 
 function getTypeInstructions(type) {
-  if (type === "multiple-choice") {
-    return `
-Use only multiple-choice questions.
+  switch (type) {
+    case "multiple-choice":
+      return `
+Generate only multiple-choice questions.
 
-Every question must:
-- Have type "multiple-choice".
-- Have exactly four options.
-- Have one correct answer.
-- Set answer to the exact text of the correct option.
+Each question MUST:
+- have type "multiple-choice"
+- contain exactly 4 options
+- contain one correct answer
+- have the answer exactly match one option
 `;
-  }
 
-  if (type === "true-false") {
-    return `
-Use only true/false questions.
+    case "true-false":
+      return `
+Generate only true-false questions.
 
-Every question must:
-- Have type "true-false".
-- Have options ["True", "False"].
-- Have answer exactly "True" or "False".
+Each question MUST:
+- have type "true-false"
+- have options ["True", "False"]
+- have answer "True" or "False"
 `;
-  }
 
-  if (type === "short-answer") {
-    return `
-Use only short-answer questions.
+    case "short-answer":
+      return `
+Generate only short-answer questions.
 
-Every question must:
-- Have type "short-answer".
-- Have a concise correct answer.
+Each question MUST:
+- have type "short-answer"
+- have a concise answer
 `;
-  }
 
-  if (type === "essay") {
-    return `
-Use only essay questions.
+    case "essay":
+      return `
+Generate only essay questions.
 
-Every question must:
-- Have type "essay".
-- Have a model answer based ONLY on the document.
+Each question MUST:
+- have type "essay"
+- have a model answer supported by the document
 `;
-  }
 
-  return `
-Use a balanced mixture of:
+    default:
+      return `
+Generate a mixture of:
 - multiple-choice
 - true-false
 - short-answer
 - essay
 
-Every question must contain its type.
+Distribute the question types reasonably.
 `;
+  }
 }
 
 function getDifficultyInstructions(level) {
@@ -294,31 +249,26 @@ Use a mixture of easy, medium, and hard questions.
   }
 
   return `
-All questions must be ${level} difficulty.
+Every question must be ${level} difficulty.
 `;
 }
 
-function buildPreviousQuestionList(
-  existingQuestions,
-  maxQuestions = 30
-) {
+function buildPreviousQuestions(existingQuestions) {
   if (!existingQuestions?.length) {
     return "";
   }
 
-  const recent = existingQuestions.slice(
-    -maxQuestions
-  );
+  const recent = existingQuestions.slice(-20);
 
   return `
-These questions have already been generated.
+Some questions have already been generated.
 
-Do NOT repeat them or closely rephrase them:
+DO NOT repeat these questions:
 
 ${recent
   .map(
-    (question, index) =>
-      `${index + 1}. ${question.question}`
+    (q, index) =>
+      `${index + 1}. ${q.question}`
   )
   .join("\n")}
 `;
@@ -331,53 +281,40 @@ async function generateQuizBatch({
   difficulty,
   existingQuestions,
 }) {
-  const typeInstructions =
-    getTypeInstructions(questionType);
-
-  const difficultyInstructions =
-    getDifficultyInstructions(difficulty);
-
-  const previousQuestions =
-    buildPreviousQuestionList(
-      existingQuestions,
-      30
-    );
-
   const prompt = `
 You are Marginal, an AI study assistant.
 
-Generate EXACTLY ${batchSize} NEW quiz questions.
+Generate exactly ${batchSize} UNIQUE quiz questions.
 
-The questions must be based ONLY on the student's document.
-
-IMPORTANT:
-- Return exactly ${batchSize} questions.
-- Do not return fewer.
-- Do not return more.
-- Return ONLY valid JSON.
-- Do not include markdown.
-- Do not include explanations outside JSON.
-- Do not invent facts.
-- Do not repeat existing questions.
-- Do not closely rephrase existing questions.
-- Each question must test a different aspect, fact, relationship, definition, explanation, comparison, application, or implication found in the document.
-- Questions may examine the same topic from genuinely different angles.
-- Make every question meaningfully different.
-- Make sure every answer is directly supported by the document.
+The questions must be based ONLY on the document.
 
 QUESTION TYPE:
 ${questionType}
 
-${typeInstructions}
+${getTypeInstructions(questionType)}
 
 DIFFICULTY:
 ${difficulty}
 
-${difficultyInstructions}
+${getDifficultyInstructions(difficulty)}
 
-${previousQuestions}
+${buildPreviousQuestions(existingQuestions)}
 
-Return exactly:
+IMPORTANT RULES:
+
+1. Generate exactly ${batchSize} questions.
+2. Every question must be meaningfully different.
+3. Do not repeat or closely rephrase previous questions.
+4. Do not invent information.
+5. Every answer must be supported by the document.
+6. Cover different concepts, definitions, examples, processes,
+   relationships, comparisons, facts, applications, and explanations.
+7. Avoid asking the same fact in different wording.
+8. Return ONLY JSON.
+9. Do not use markdown.
+10. Do not add commentary.
+
+Return this exact structure:
 
 {
   "questions": [
@@ -391,7 +328,7 @@ Return exactly:
         "Option C",
         "Option D"
       ],
-      "answer": "Correct option"
+      "answer": "Option A"
     }
   ]
 }
@@ -441,30 +378,7 @@ ${text}
     .map(normalizeQuestion)
     .filter(Boolean);
 
-  return removeDuplicateQuestions(
-    normalized
-  );
-}
-
-async function generateReplacementQuestions({
-  text,
-  needed,
-  questionType,
-  difficulty,
-  existingQuestions,
-}) {
-  const replacementBatchSize = Math.min(
-    needed,
-    5
-  );
-
-  return generateQuizBatch({
-    text,
-    batchSize: replacementBatchSize,
-    questionType,
-    difficulty,
-    existingQuestions,
-  });
+  return removeDuplicateQuestions(normalized);
 }
 
 export async function generateQuiz(
@@ -506,9 +420,7 @@ export async function generateQuiz(
     "mixed",
   ];
 
-  const type = allowedTypes.includes(
-    questionType
-  )
+  const type = allowedTypes.includes(questionType)
     ? questionType
     : "mixed";
 
@@ -527,154 +439,124 @@ export async function generateQuiz(
 
   let questions = [];
 
-  const batchSize = 5;
-  const maxBatchAttempts = 4;
+  const batchSize = count >= 50 ? 10 : 5;
+  const maxAttempts = 20;
 
-  const maxTotalRequests =
-    Math.max(10, count * 2);
-
-  let totalRequests = 0;
+  let attempts = 0;
 
   while (
     questions.length < count &&
-    totalRequests < maxTotalRequests
+    attempts < maxAttempts
   ) {
-    const remaining =
-      count - questions.length;
+    attempts++;
 
-    const requested =
-      Math.min(batchSize, remaining);
+    const remaining = count - questions.length;
+    const requested = Math.min(
+      batchSize,
+      remaining
+    );
 
-    let batchQuestions = [];
+    console.log(
+      `Generating quiz batch ${attempts}: ${questions.length}/${count}`
+    );
 
-    for (
-      let attempt = 1;
-      attempt <= maxBatchAttempts;
-      attempt++
-    ) {
-      totalRequests++;
+    try {
+      const batch = await generateQuizBatch({
+        text,
+        batchSize: requested,
+        questionType: type,
+        difficulty: level,
+        existingQuestions: questions,
+      });
 
-      try {
-        batchQuestions =
-          await generateQuizBatch({
-            text,
-            batchSize: requested,
-            questionType: type,
-            difficulty: level,
-            existingQuestions: questions,
-          });
-
-        const existingKeys = new Set(
-          questions.map(questionKey)
-        );
-
-        batchQuestions =
-          batchQuestions.filter(
-            (question) =>
-              !existingKeys.has(
-                questionKey(question)
-              )
-          );
-
-        if (
-          batchQuestions.length >= requested
-        ) {
-          break;
-        }
-
-        console.warn(
-          `Quiz batch returned ${batchQuestions.length}/${requested} unique valid questions. Retrying.`
-        );
-      } catch (error) {
-        console.error(
-          `Quiz generation attempt ${attempt} failed:`,
-          error?.message || error
-        );
-
-        if (
-          attempt === maxBatchAttempts
-        ) {
-          batchQuestions = [];
-        }
-      }
-
-      if (totalRequests >= maxTotalRequests) {
-        break;
-      }
-    }
-
-    if (batchQuestions.length > 0) {
-      questions.push(
-        ...batchQuestions.slice(0, requested)
+      const existingKeys = new Set(
+        questions.map(questionKey)
       );
 
-      questions =
-        removeDuplicateQuestions(
-          questions
-        );
+      const newQuestions = batch.filter(
+        (question) =>
+          !existingKeys.has(
+            questionKey(question)
+          )
+      );
+
+      if (newQuestions.length > 0) {
+        questions = removeDuplicateQuestions([
+          ...questions,
+          ...newQuestions,
+        ]);
+      }
 
       console.log(
         `Quiz progress: ${questions.length}/${count}`
       );
-    }
-
-    if (
-      batchQuestions.length === 0 &&
-      questions.length < count
-    ) {
-      try {
-        const replacement =
-          await generateReplacementQuestions({
-            text,
-            needed: remaining,
-            questionType: type,
-            difficulty: level,
-            existingQuestions: questions,
-          });
-
-        const existingKeys = new Set(
-          questions.map(questionKey)
-        );
-
-        const newQuestions =
-          replacement.filter(
-            (question) =>
-              !existingKeys.has(
-                questionKey(question)
-              )
-          );
-
-        questions.push(...newQuestions);
-
-        questions =
-          removeDuplicateQuestions(
-            questions
-          );
-
-        console.log(
-          `Replacement progress: ${questions.length}/${count}`
-        );
-      } catch (error) {
-        console.error(
-          "Replacement generation failed:",
-          error?.message || error
-        );
-      }
+    } catch (error) {
+      console.error(
+        `Quiz batch ${attempts} failed:`,
+        error?.message || error
+      );
     }
   }
 
-  questions =
-    removeDuplicateQuestions(questions);
+  questions = removeDuplicateQuestions(
+    questions
+  );
 
   if (questions.length < count) {
     throw new Error(
-      `Could not generate exactly ${count} unique questions. Only ${questions.length} valid questions were generated. Please try again.`
+      `Could not generate enough unique questions. Generated ${questions.length} of ${count}. Please try again or choose a smaller quiz size.`
     );
   }
 
   return JSON.stringify({
     questions: questions.slice(0, count),
   });
+}
+
+export async function generateSummary(text) {
+  if (!text?.trim()) {
+    throw new Error(
+      "No document text was provided."
+    );
+  }
+
+  const prompt = `
+You are Marginal, an AI study assistant.
+
+Analyze the student's document carefully.
+
+Create study material based ONLY on the document.
+
+Return ONLY valid JSON:
+
+{
+  "shortSummary": "A concise summary.",
+  "detailedSummary": "A detailed explanation.",
+  "keyPoints": [
+    "Important point 1",
+    "Important point 2"
+  ],
+  "importantTerms": [
+    {
+      "term": "Term",
+      "meaning": "Meaning based on the document"
+    }
+  ],
+  "questions": [
+    {
+      "question": "Question based on the document",
+      "answer": "Correct answer based on the document"
+    }
+  ]
+}
+
+Generate exactly 10 study questions.
+
+DOCUMENT:
+${text}
+`;
+
+  return generateJson(prompt);
 }
 
 export async function generateQA(
@@ -698,13 +580,14 @@ You are Marginal, an AI study assistant.
 
 Answer the student's question using ONLY the document.
 
-If the document does not provide enough information, say so clearly.
+If the document does not provide enough information,
+say so clearly.
 
-Return ONLY valid JSON in exactly this structure:
+Return ONLY valid JSON:
 
 {
   "answer": "Your answer based only on the document.",
-  "source": "A short description of where the answer came from in the document."
+  "source": "A short description of where the answer came from."
 }
 
 DOCUMENT:
@@ -727,7 +610,8 @@ export async function generateGlossary(text) {
   const prompt = `
 You are Marginal, an AI study assistant.
 
-Create a useful academic glossary from the document using ONLY information found in it.
+Create a useful academic glossary using ONLY information
+found in the document.
 
 Return ONLY valid JSON:
 
@@ -741,7 +625,8 @@ Return ONLY valid JSON:
   ]
 }
 
-Generate between 5 and 20 meaningful terms when the document supports them.
+Generate between 5 and 20 meaningful terms when supported
+by the document.
 
 DOCUMENT:
 ${text}
@@ -760,7 +645,8 @@ export async function generateSections(text) {
   const prompt = `
 You are Marginal, an AI study assistant.
 
-Organize the document into meaningful academic study sections using ONLY information contained in the document.
+Organize the document into meaningful academic study
+sections using ONLY information contained in the document.
 
 Return ONLY valid JSON:
 
@@ -777,7 +663,8 @@ Return ONLY valid JSON:
   ]
 }
 
-Keep the number of sections reasonable and group related information.
+Keep the number of sections reasonable and group related
+information.
 
 DOCUMENT:
 ${text}
@@ -785,3 +672,4 @@ ${text}
 
   return generateJson(prompt);
 }
+
