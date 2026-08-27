@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -34,6 +35,9 @@ export default function Quiz() {
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStatus, setGenerationStatus] = useState("");
+
   const [quizStarted, setQuizStarted] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -43,10 +47,6 @@ export default function Quiz() {
   useEffect(() => {
     loadCurrentDocument();
   }, []);
-
-  // ---------------------------------------------------------
-  // LOAD CURRENT DOCUMENT
-  // ---------------------------------------------------------
 
   const loadCurrentDocument = async () => {
     try {
@@ -66,17 +66,12 @@ export default function Quiz() {
       console.error("Quiz document error:", err);
 
       setError(
-        err?.message ||
-          "Could not load the selected document."
+        err?.message || "Could not load the selected document."
       );
     } finally {
       setLoadingDocument(false);
     }
   };
-
-  // ---------------------------------------------------------
-  // START QUIZ
-  // ---------------------------------------------------------
 
   const startQuiz = async () => {
     if (!documentData?.id) {
@@ -86,9 +81,54 @@ export default function Quiz() {
       return;
     }
 
+    let progressTimer;
+
     try {
       setLoading(true);
       setError("");
+
+      setGenerationProgress(5);
+      setGenerationStatus("Preparing your quiz...");
+
+      const progressSteps = [
+        {
+          progress: 15,
+          status: "Reading your document...",
+        },
+        {
+          progress: 30,
+          status: "Identifying important topics...",
+        },
+        {
+          progress: 45,
+          status: "Creating questions...",
+        },
+        {
+          progress: 60,
+          status: "Checking question quality...",
+        },
+        {
+          progress: 75,
+          status: "Removing duplicate questions...",
+        },
+        {
+          progress: 88,
+          status: "Finalizing your quiz...",
+        },
+      ];
+
+      let stepIndex = 0;
+
+      progressTimer = setInterval(() => {
+        if (stepIndex < progressSteps.length) {
+          const step = progressSteps[stepIndex];
+
+          setGenerationProgress(step.progress);
+          setGenerationStatus(step.status);
+
+          stepIndex += 1;
+        }
+      }, 1200);
 
       const response = await generateQuiz({
         documentId: documentData.id,
@@ -96,6 +136,13 @@ export default function Quiz() {
         questionType,
         difficulty,
       });
+
+      clearInterval(progressTimer);
+
+      setGenerationProgress(100);
+      setGenerationStatus("Quiz ready!");
+
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       const generatedQuestions =
         response?.data?.questions ||
@@ -106,9 +153,7 @@ export default function Quiz() {
         !Array.isArray(generatedQuestions) ||
         generatedQuestions.length === 0
       ) {
-        throw new Error(
-          "No quiz questions were generated."
-        );
+        throw new Error("No quiz questions were generated.");
       }
 
       setQuestions(generatedQuestions);
@@ -117,21 +162,26 @@ export default function Quiz() {
       setQuizStarted(true);
       setReviewMode(false);
       setQuizSubmitted(false);
+
+      setGenerationProgress(0);
+      setGenerationStatus("");
     } catch (err) {
+      if (progressTimer) {
+        clearInterval(progressTimer);
+      }
+
       console.error("Quiz generation error:", err);
 
+      setGenerationProgress(0);
+      setGenerationStatus("");
+
       setError(
-        err?.message ||
-          "Could not create the quiz. Please try again."
+        err?.message || "Could not create the quiz. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
-
-  // ---------------------------------------------------------
-  // QUESTION HELPERS
-  // ---------------------------------------------------------
 
   const getQuestionText = (question) => {
     return (
@@ -184,14 +234,8 @@ export default function Quiz() {
       return "";
     }
 
-    return String(answer)
-      .trim()
-      .toLowerCase();
+    return String(answer).trim().toLowerCase();
   };
-
-  // ---------------------------------------------------------
-  // ANSWER QUESTION
-  // ---------------------------------------------------------
 
   const selectAnswer = (answer) => {
     if (quizSubmitted) {
@@ -204,28 +248,16 @@ export default function Quiz() {
     }));
   };
 
-  // ---------------------------------------------------------
-  // NAVIGATION
-  // ---------------------------------------------------------
-
   const goToQuestion = (index) => {
-    if (
-      index >= 0 &&
-      index < questions.length
-    ) {
+    if (index >= 0 && index < questions.length) {
       setCurrentQuestion(index);
       setReviewMode(false);
     }
   };
 
   const nextQuestion = () => {
-    if (
-      currentQuestion <
-      questions.length - 1
-    ) {
-      setCurrentQuestion(
-        (previous) => previous + 1
-      );
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
     } else {
       setReviewMode(true);
     }
@@ -233,28 +265,17 @@ export default function Quiz() {
 
   const previousQuestion = () => {
     if (currentQuestion > 0) {
-      setCurrentQuestion(
-        (previous) => previous - 1
-      );
+      setCurrentQuestion((previous) => previous - 1);
     }
   };
 
   const skipQuestion = () => {
-    if (
-      currentQuestion <
-      questions.length - 1
-    ) {
-      setCurrentQuestion(
-        (previous) => previous + 1
-      );
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
     } else {
       setReviewMode(true);
     }
   };
-
-  // ---------------------------------------------------------
-  // REVIEW
-  // ---------------------------------------------------------
 
   const answeredCount = useMemo(() => {
     return Object.keys(answers).filter(
@@ -278,19 +299,11 @@ export default function Quiz() {
     }));
   }, [questions, answers]);
 
-  // ---------------------------------------------------------
-  // SUBMIT QUIZ
-  // ---------------------------------------------------------
-
   const submitQuiz = () => {
     setQuizSubmitted(true);
     setReviewMode(false);
     setCurrentQuestion(0);
   };
-
-  // ---------------------------------------------------------
-  // CALCULATE RESULT
-  // ---------------------------------------------------------
 
   const result = useMemo(() => {
     if (!quizSubmitted) {
@@ -306,8 +319,7 @@ export default function Quiz() {
 
     questions.forEach((question, index) => {
       const userAnswer = answers[index];
-      const correctAnswer =
-        getCorrectAnswer(question);
+      const correctAnswer = getCorrectAnswer(question);
 
       if (
         userAnswer !== undefined &&
@@ -324,9 +336,7 @@ export default function Quiz() {
       unanswered: unansweredCount,
       percentage:
         questions.length > 0
-          ? Math.round(
-              (correct / questions.length) * 100
-            )
+          ? Math.round((correct / questions.length) * 100)
           : 0,
     };
   }, [
@@ -337,10 +347,6 @@ export default function Quiz() {
     unansweredCount,
   ]);
 
-  // ---------------------------------------------------------
-  // RESTART
-  // ---------------------------------------------------------
-
   const restartQuiz = () => {
     setQuestions([]);
     setAnswers({});
@@ -349,11 +355,9 @@ export default function Quiz() {
     setReviewMode(false);
     setQuizSubmitted(false);
     setError("");
+    setGenerationProgress(0);
+    setGenerationStatus("");
   };
-
-  // ---------------------------------------------------------
-  // LOADING DOCUMENT
-  // ---------------------------------------------------------
 
   if (loadingDocument) {
     return (
@@ -364,10 +368,7 @@ export default function Quiz() {
 
             <div>
               <h2>Loading your document...</h2>
-
-              <p>
-                Marginal is preparing your quiz.
-              </p>
+              <p>Marginal is preparing your quiz.</p>
             </div>
           </div>
         </div>
@@ -375,14 +376,7 @@ export default function Quiz() {
     );
   }
 
-  // ---------------------------------------------------------
-  // ERROR
-  // ---------------------------------------------------------
-
-  if (
-    error &&
-    !quizStarted
-  ) {
+  if (error && !quizStarted) {
     return (
       <div className="quiz-page">
         <div className="quiz-main">
@@ -416,14 +410,7 @@ export default function Quiz() {
     );
   }
 
-  // ---------------------------------------------------------
-  // FINAL RESULTS
-  // ---------------------------------------------------------
-
-  if (
-    quizSubmitted &&
-    questions.length > 0
-  ) {
+  if (quizSubmitted && questions.length > 0) {
     return (
       <div className="quiz-page">
         <div className="quiz-main">
@@ -436,54 +423,37 @@ export default function Quiz() {
 
             <p>
               Here is how you performed on{" "}
-              <strong>
-                {documentData?.name}
-              </strong>
-              .
+              <strong>{documentData?.name}</strong>.
             </p>
           </div>
 
           <div className="quiz-result-summary">
             <div className="quiz-score-circle">
-              <strong>
-                {result.percentage}%
-              </strong>
+              <strong>{result.percentage}%</strong>
 
               <span>
-                {result.score} /{" "}
-                {questions.length}
+                {result.score} / {questions.length}
               </span>
             </div>
 
             <div className="quiz-result-stats">
               <div className="quiz-stat correct-stat">
                 <CheckCircle2 size={20} />
-
-                <strong>
-                  {result.score}
-                </strong>
-
+                <strong>{result.score}</strong>
                 <span>Correct</span>
               </div>
 
               <div className="quiz-stat wrong-stat">
                 <XCircle size={20} />
-
                 <strong>
-                  {result.answered -
-                    result.score}
+                  {result.answered - result.score}
                 </strong>
-
                 <span>Wrong</span>
               </div>
 
               <div className="quiz-stat unanswered-stat">
                 <Circle size={20} />
-
-                <strong>
-                  {result.unanswered}
-                </strong>
-
+                <strong>{result.unanswered}</strong>
                 <span>Unanswered</span>
               </div>
             </div>
@@ -496,113 +466,86 @@ export default function Quiz() {
                   ANSWER REVIEW
                 </span>
 
-                <h2>
-                  Review your answers
-                </h2>
+                <h2>Review your answers</h2>
               </div>
             </div>
 
-            {questions.map(
-              (question, index) => {
-                const userAnswer =
-                  answers[index];
+            {questions.map((question, index) => {
+              const userAnswer = answers[index];
+              const correctAnswer =
+                getCorrectAnswer(question);
 
-                const correctAnswer =
-                  getCorrectAnswer(
-                    question
-                  );
+              const answered =
+                userAnswer !== undefined &&
+                userAnswer !== null &&
+                userAnswer !== "";
 
-                const answered =
-                  userAnswer !==
-                    undefined &&
-                  userAnswer !== null &&
-                  userAnswer !== "";
+              const isCorrect =
+                answered &&
+                normalizeAnswer(userAnswer) ===
+                  normalizeAnswer(correctAnswer);
 
-                const isCorrect =
-                  answered &&
-                  normalizeAnswer(
-                    userAnswer
-                  ) ===
-                    normalizeAnswer(
-                      correctAnswer
-                    );
+              return (
+                <div
+                  key={index}
+                  className={`quiz-result-question ${
+                    isCorrect
+                      ? "result-correct"
+                      : answered
+                      ? "result-wrong"
+                      : "result-unanswered"
+                  }`}
+                >
+                  <div className="quiz-result-question-number">
+                    {index + 1}
+                  </div>
 
-                return (
-                  <div
-                    key={index}
-                    className={`quiz-result-question ${
-                      isCorrect
-                        ? "result-correct"
-                        : answered
-                        ? "result-wrong"
-                        : "result-unanswered"
-                    }`}
-                  >
-                    <div className="quiz-result-question-number">
-                      {index + 1}
+                  <div className="quiz-result-question-content">
+                    <div className="quiz-result-question-status">
+                      {isCorrect ? (
+                        <>
+                          <CheckCircle2 size={16} />
+                          Correct
+                        </>
+                      ) : answered ? (
+                        <>
+                          <XCircle size={16} />
+                          Wrong
+                        </>
+                      ) : (
+                        <>
+                          <Circle size={16} />
+                          Unanswered
+                        </>
+                      )}
                     </div>
 
-                    <div className="quiz-result-question-content">
-                      <div className="quiz-result-question-status">
-                        {isCorrect ? (
-                          <>
-                            <CheckCircle2
-                              size={16}
-                            />
-                            Correct
-                          </>
-                        ) : answered ? (
-                          <>
-                            <XCircle
-                              size={16}
-                            />
-                            Wrong
-                          </>
-                        ) : (
-                          <>
-                            <Circle
-                              size={16}
-                            />
-                            Unanswered
-                          </>
-                        )}
+                    <h3>{getQuestionText(question)}</h3>
+
+                    <div className="quiz-answer-row">
+                      <div>
+                        <span>YOUR ANSWER</span>
+                        <p>
+                          {answered
+                            ? getOptionText(userAnswer)
+                            : "Not answered"}
+                        </p>
                       </div>
 
-                      <h3>
-                        {getQuestionText(
-                          question
-                        )}
-                      </h3>
-
-                      <div className="quiz-answer-row">
-                        <div>
-                          <span>
-                            YOUR ANSWER
-                          </span>
-
-                          <p>
-                            {answered
-                              ? userAnswer
-                              : "Not answered"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <span>
-                            CORRECT ANSWER
-                          </span>
-
-                          <p>
-                            {correctAnswer ??
-                              "Not available"}
-                          </p>
-                        </div>
+                      <div>
+                        <span>CORRECT ANSWER</span>
+                        <p>
+                          {correctAnswer !== undefined &&
+                          correctAnswer !== null
+                            ? getOptionText(correctAnswer)
+                            : "Not available"}
+                        </p>
                       </div>
                     </div>
                   </div>
-                );
-              }
-            )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="quiz-result-actions">
@@ -616,9 +559,7 @@ export default function Quiz() {
 
             <button
               className="quiz-secondary-button"
-              onClick={() =>
-                navigate("/dashboard")
-              }
+              onClick={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -627,10 +568,6 @@ export default function Quiz() {
       </div>
     );
   }
-
-  // ---------------------------------------------------------
-  // REVIEW BEFORE SUBMIT
-  // ---------------------------------------------------------
 
   if (
     quizStarted &&
@@ -643,9 +580,7 @@ export default function Quiz() {
           <div className="quiz-review-header">
             <button
               className="quiz-back-button"
-              onClick={() =>
-                setReviewMode(false)
-              }
+              onClick={() => setReviewMode(false)}
             >
               <ArrowLeft size={16} />
               Back to Quiz
@@ -655,45 +590,30 @@ export default function Quiz() {
               FINAL REVIEW
             </span>
 
-            <h1>
-              Review before submitting
-            </h1>
+            <h1>Review before submitting</h1>
 
             <p>
-              Check your answers before you
-              submit your quiz. You can go back
-              and change any answer.
+              Check your answers before you submit your
+              quiz. You can go back and change any answer.
             </p>
           </div>
 
           <div className="quiz-review-summary">
             <div>
               <CheckCircle2 size={20} />
-
-              <strong>
-                {answeredCount}
-              </strong>
-
+              <strong>{answeredCount}</strong>
               <span>Answered</span>
             </div>
 
             <div>
               <Circle size={20} />
-
-              <strong>
-                {unansweredCount}
-              </strong>
-
+              <strong>{unansweredCount}</strong>
               <span>Unanswered</span>
             </div>
 
             <div>
               <BookOpen size={20} />
-
-              <strong>
-                {questions.length}
-              </strong>
-
+              <strong>{questions.length}</strong>
               <span>Total</span>
             </div>
           </div>
@@ -704,18 +624,15 @@ export default function Quiz() {
 
               <div>
                 <strong>
-                  You have {unansweredCount}{" "}
-                  unanswered{" "}
+                  You have {unansweredCount} unanswered{" "}
                   {unansweredCount === 1
                     ? "question"
-                    : "questions"}
-                  .
+                    : "questions"}.
                 </strong>
 
                 <p>
-                  You can submit now, or go back
-                  and answer the unanswered
-                  questions.
+                  You can submit now, or go back and answer
+                  the unanswered questions.
                 </p>
               </div>
             </div>
@@ -728,23 +645,17 @@ export default function Quiz() {
                   QUESTION LIST
                 </span>
 
-                <h2>
-                  All {questions.length} questions
-                </h2>
+                <h2>All {questions.length} questions</h2>
               </div>
 
               <span className="quiz-review-count">
-                {answeredCount}/
-                {questions.length} answered
+                {answeredCount}/{questions.length} answered
               </span>
             </div>
 
             <div className="quiz-question-grid">
               {answeredQuestions.map(
-                ({
-                  index,
-                  answered,
-                }) => (
+                ({ index, answered }) => (
                   <button
                     key={index}
                     type="button"
@@ -753,22 +664,14 @@ export default function Quiz() {
                         ? "answered"
                         : "unanswered"
                     }`}
-                    onClick={() =>
-                      goToQuestion(index)
-                    }
+                    onClick={() => goToQuestion(index)}
                   >
-                    <span>
-                      {index + 1}
-                    </span>
+                    <span>{index + 1}</span>
 
                     {answered ? (
-                      <CheckCircle2
-                        size={14}
-                      />
+                      <CheckCircle2 size={14} />
                     ) : (
-                      <Circle
-                        size={14}
-                      />
+                      <Circle size={14} />
                     )}
                   </button>
                 )
@@ -778,13 +681,11 @@ export default function Quiz() {
 
           <div className="quiz-submit-card">
             <div>
-              <strong>
-                Ready to submit?
-              </strong>
+              <strong>Ready to submit?</strong>
 
               <p>
-                Your answers will be graded only
-                after you submit.
+                Your answers will be graded only after you
+                submit.
               </p>
             </div>
 
@@ -800,22 +701,13 @@ export default function Quiz() {
     );
   }
 
-  // ---------------------------------------------------------
-  // ANSWERING QUESTIONS
-  // ---------------------------------------------------------
-
   if (
     quizStarted &&
     questions.length > 0
   ) {
-    const question =
-      questions[currentQuestion];
-
-    const options =
-      getOptions(question);
-
-    const selectedAnswer =
-      answers[currentQuestion];
+    const question = questions[currentQuestion];
+    const options = getOptions(question);
+    const selectedAnswer = answers[currentQuestion];
 
     const hasAnswered =
       selectedAnswer !== undefined &&
@@ -823,9 +715,7 @@ export default function Quiz() {
       selectedAnswer !== "";
 
     const progress =
-      ((currentQuestion + 1) /
-        questions.length) *
-      100;
+      ((currentQuestion + 1) / questions.length) * 100;
 
     return (
       <div className="quiz-page">
@@ -833,9 +723,7 @@ export default function Quiz() {
           <div className="quiz-answer-topbar">
             <button
               className="quiz-back-button"
-              onClick={() =>
-                setReviewMode(true)
-              }
+              onClick={() => setReviewMode(true)}
             >
               <ArrowLeft size={16} />
               Review
@@ -843,95 +731,77 @@ export default function Quiz() {
 
             <div className="quiz-progress-info">
               <span>
-                Question{" "}
-                {currentQuestion + 1} of{" "}
+                Question {currentQuestion + 1} of{" "}
                 {questions.length}
               </span>
 
-              <strong>
-                {answeredCount} answered
-              </strong>
+              <strong>{answeredCount} answered</strong>
             </div>
           </div>
 
           <div className="quiz-progress-track">
             <div
               className="quiz-progress-fill"
-              style={{
-                width: `${progress}%`,
-              }}
+              style={{ width: `${progress}%` }}
             />
           </div>
 
           <div className="quiz-question-card">
             <div className="quiz-question-meta">
               <span className="quiz-question-label">
-                QUESTION{" "}
-                {currentQuestion + 1}
+                QUESTION {currentQuestion + 1}
               </span>
 
               <span className="quiz-type-badge">
-                {question?.type ||
-                  questionType}
+                {question?.type || questionType}
               </span>
             </div>
 
-            <h1>
-              {getQuestionText(question)}
-            </h1>
+            <h1>{getQuestionText(question)}</h1>
 
             {options.length > 0 ? (
               <div className="quiz-options">
-                {options.map(
-                  (option, index) => {
-                    const optionText =
-                      getOptionText(option);
+                {options.map((option, index) => {
+                  const optionText = getOptionText(option);
 
-                    const isSelected =
-                      selectedAnswer ===
-                      optionText;
+                  const isSelected =
+                    normalizeAnswer(selectedAnswer) ===
+                    normalizeAnswer(optionText);
 
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        className={`quiz-option ${
-                          isSelected
-                            ? "selected"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          selectAnswer(
-                            optionText
-                          )
-                        }
-                      >
-                        <span className="quiz-option-letter">
-                          {String.fromCharCode(
-                            65 + index
-                          )}
-                        </span>
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      className={`quiz-option ${
+                        isSelected ? "selected" : ""
+                      }`}
+                      onClick={() =>
+                        selectAnswer(optionText)
+                      }
+                    >
+                      <span className="quiz-option-letter">
+                        {String.fromCharCode(65 + index)}
+                      </span>
 
-                        <span className="quiz-option-text">
-                          {optionText}
-                        </span>
+                      <span className="quiz-option-text">
+                        {optionText}
+                      </span>
 
-                        {isSelected && (
-                          <CheckCircle2
-                            size={19}
-                            className="quiz-selected-icon"
-                          />
-                        )}
-                      </button>
-                    );
-                  }
-                )}
+                      {isSelected && (
+                        <CheckCircle2
+                          size={19}
+                          className="quiz-selected-icon"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="quiz-no-options">
                 <p>
-                  This question does not have
-                  answer options.
+                  This question does not have answer
+                  options.
                 </p>
               </div>
             )}
@@ -939,9 +809,7 @@ export default function Quiz() {
             <div className="quiz-answer-status">
               {hasAnswered ? (
                 <>
-                  <CheckCircle2
-                    size={16}
-                  />
+                  <CheckCircle2 size={16} />
                   Answer saved
                 </>
               ) : (
@@ -955,12 +823,8 @@ export default function Quiz() {
             <div className="quiz-navigation">
               <button
                 className="quiz-secondary-button"
-                onClick={
-                  previousQuestion
-                }
-                disabled={
-                  currentQuestion === 0
-                }
+                onClick={previousQuestion}
+                disabled={currentQuestion === 0}
               >
                 Previous
               </button>
@@ -969,17 +833,14 @@ export default function Quiz() {
                 className="quiz-skip-button"
                 onClick={skipQuestion}
               >
-                {hasAnswered
-                  ? "Next"
-                  : "Skip Question"}
+                {hasAnswered ? "Next" : "Skip Question"}
               </button>
 
               <button
                 className="quiz-next-button"
                 onClick={nextQuestion}
               >
-                {currentQuestion ===
-                questions.length - 1
+                {currentQuestion === questions.length - 1
                   ? "Review Quiz"
                   : "Next Question"}
               </button>
@@ -989,27 +850,18 @@ export default function Quiz() {
           <div className="quiz-question-navigator">
             <div className="quiz-navigator-header">
               <div>
-                <strong>
-                  Question Navigator
-                </strong>
-
-                <span>
-                  Jump to any question
-                </span>
+                <strong>Question Navigator</strong>
+                <span>Jump to any question</span>
               </div>
 
               <span>
-                {answeredCount}/
-                {questions.length} answered
+                {answeredCount}/{questions.length} answered
               </span>
             </div>
 
             <div className="quiz-question-grid">
               {answeredQuestions.map(
-                ({
-                  index,
-                  answered,
-                }) => (
+                ({ index, answered }) => (
                   <button
                     key={index}
                     type="button"
@@ -1018,14 +870,11 @@ export default function Quiz() {
                         ? "answered"
                         : "unanswered"
                     } ${
-                      index ===
-                      currentQuestion
+                      index === currentQuestion
                         ? "current"
                         : ""
                     }`}
-                    onClick={() =>
-                      goToQuestion(index)
-                    }
+                    onClick={() => goToQuestion(index)}
                   >
                     {index + 1}
                   </button>
@@ -1055,10 +904,6 @@ export default function Quiz() {
     );
   }
 
-  // ---------------------------------------------------------
-  // QUIZ SETUP
-  // ---------------------------------------------------------
-
   return (
     <div className="quiz-page">
       <div className="quiz-main">
@@ -1078,9 +923,9 @@ export default function Quiz() {
           <h1>Create a Quiz</h1>
 
           <p>
-            Test your understanding using
-            questions generated directly from
-            your selected study document.
+            Test your understanding using questions
+            generated directly from your selected study
+            document.
           </p>
         </div>
 
@@ -1089,10 +934,7 @@ export default function Quiz() {
             <XCircle size={19} />
 
             <div>
-              <strong>
-                Something went wrong
-              </strong>
-
+              <strong>Something went wrong</strong>
               <p>{error}</p>
             </div>
           </div>
@@ -1105,17 +947,13 @@ export default function Quiz() {
             </div>
 
             <div>
-              <span>
-                SELECTED DOCUMENT
-              </span>
+              <span>SELECTED DOCUMENT</span>
 
-              <h2>
-                {documentData.name}
-              </h2>
+              <h2>{documentData.name}</h2>
 
               <p>
-                Your quiz will be generated
-                from this document.
+                Your quiz will be generated from this
+                document.
               </p>
             </div>
           </div>
@@ -1127,49 +965,38 @@ export default function Quiz() {
               QUIZ SETTINGS
             </span>
 
-            <h2>
-              How many questions?
-            </h2>
+            <h2>How many questions?</h2>
 
             <p>
-              Choose between 10 and 100
-              questions.
+              Choose between 10 and 100 questions.
             </p>
           </div>
 
           <div className="quiz-setting-group">
-            <label>
-              Number of questions
-            </label>
+            <label>Number of questions</label>
 
             <div className="quiz-count-grid">
-              {QUESTION_COUNTS.map(
-                (count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    className={`quiz-count-button ${
-                      questionCount === count
-                        ? "selected"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      setQuestionCount(
-                        count
-                      )
-                    }
-                  >
-                    {count}
-                  </button>
-                )
-              )}
+              {QUESTION_COUNTS.map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  className={`quiz-count-button ${
+                    questionCount === count
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setQuestionCount(count)
+                  }
+                >
+                  {count}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="quiz-setting-group">
-            <label>
-              Question type
-            </label>
+            <label>Question type</label>
 
             <div className="quiz-choice-grid">
               <button
@@ -1184,10 +1011,7 @@ export default function Quiz() {
                 }
               >
                 <strong>Mixed</strong>
-
-                <span>
-                  Different question styles
-                </span>
+                <span>Different question styles</span>
               </button>
 
               <button
@@ -1199,49 +1023,32 @@ export default function Quiz() {
                     : ""
                 }`}
                 onClick={() =>
-                  setQuestionType(
-                    "multiple-choice"
-                  )
+                  setQuestionType("multiple-choice")
                 }
               >
-                <strong>
-                  Multiple Choice
-                </strong>
-
-                <span>
-                  Select the correct answer
-                </span>
+                <strong>Multiple Choice</strong>
+                <span>Select the correct answer</span>
               </button>
 
               <button
                 type="button"
                 className={`quiz-choice-large ${
-                  questionType ===
-                  "true-false"
+                  questionType === "true-false"
                     ? "selected"
                     : ""
                 }`}
                 onClick={() =>
-                  setQuestionType(
-                    "true-false"
-                  )
+                  setQuestionType("true-false")
                 }
               >
-                <strong>
-                  True / False
-                </strong>
-
-                <span>
-                  Choose true or false
-                </span>
+                <strong>True / False</strong>
+                <span>Choose true or false</span>
               </button>
             </div>
           </div>
 
           <div className="quiz-setting-group">
-            <label>
-              Difficulty
-            </label>
+            <label>Difficulty</label>
 
             <div className="quiz-choice-grid">
               {[
@@ -1265,45 +1072,30 @@ export default function Quiz() {
                   "Hard",
                   "Challenge yourself",
                 ],
-              ].map(
-                ([
-                  value,
-                  title,
-                  description,
-                ]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`quiz-choice-large ${
-                      difficulty === value
-                        ? "selected"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      setDifficulty(
-                        value
-                      )
-                    }
-                  >
-                    <strong>
-                      {title}
-                    </strong>
-
-                    <span>
-                      {description}
-                    </span>
-                  </button>
-                )
-              )}
+              ].map(([value, title, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`quiz-choice-large ${
+                    difficulty === value
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setDifficulty(value)
+                  }
+                >
+                  <strong>{title}</strong>
+                  <span>{description}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         <div className="quiz-start-card">
           <div>
-            <strong>
-              {questionCount} questions
-            </strong>
+            <strong>{questionCount} questions</strong>
 
             <p>
               {questionType === "mixed"
@@ -1316,20 +1108,49 @@ export default function Quiz() {
             </p>
           </div>
 
+          {loading && (
+            <div className="quiz-generation-progress">
+              <div className="quiz-generation-progress-header">
+                <div>
+                  <strong>{generationStatus}</strong>
+
+                  <span>
+                    Creating {questionCount} questions
+                  </span>
+                </div>
+
+                <strong className="quiz-generation-percentage">
+                  {generationProgress}%
+                </strong>
+              </div>
+
+              <div className="quiz-generation-progress-track">
+                <div
+                  className="quiz-generation-progress-fill"
+                  style={{
+                    width: `${generationProgress}%`,
+                  }}
+                />
+              </div>
+
+              <p>
+                This may take a little while while
+                Marginal creates and checks your
+                questions.
+              </p>
+            </div>
+          )}
+
           <button
             className="quiz-primary-button quiz-start-button"
             onClick={startQuiz}
-            disabled={
-              loading ||
-              !documentData
-            }
+            disabled={loading || !documentData}
           >
-            {loading
-              ? "Generating..."
-              : "Start Quiz"}
+            {loading ? "Generating..." : "Start Quiz"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
