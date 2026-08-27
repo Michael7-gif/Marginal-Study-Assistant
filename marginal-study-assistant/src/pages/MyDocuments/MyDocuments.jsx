@@ -234,20 +234,20 @@ function MyDocuments() {
                 <div className="document-actions">
                   <button
                     type="button"
+                    className="document-open-button"
+                    onClick={() => open(doc)}
+                  >
+                    Open
+                  </button>
+
+                  <button
+                    type="button"
                     className="document-delete-button"
                     onClick={() => remove(doc.id)}
                     title="Delete document"
                     aria-label={`Delete ${doc.name}`}
                   >
                     <Trash2 size={17} />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="document-open-button"
-                    onClick={() => open(doc)}
-                  >
-                    Open
                   </button>
                 </div>
               </article>

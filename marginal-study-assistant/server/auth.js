@@ -70,6 +70,26 @@ function hashToken(token) {
     .digest("hex");
 }
 
+function parseCookies(header) {
+  return Object.fromEntries(
+    header
+      .split(";")
+      .filter(Boolean)
+      .map((part) => {
+        const index = part.indexOf("=");
+
+        if (index < 0) {
+          return [part.trim(), ""];
+        }
+
+        return [
+          part.slice(0, index).trim(),
+          decodeURIComponent(part.slice(index + 1).trim()),
+        ];
+      })
+  );
+}
+
 export async function issueSession(res, user) {
   const token = crypto.randomBytes(32).toString("hex");
 
@@ -91,7 +111,7 @@ export async function issueSession(res, user) {
 
   res.setHeader(
     "Set-Cookie",
-    `${COOKIE_NAME}=${token}; ${cookieOptions(
+    `${COOKIE_NAME}=${encodeURIComponent(token)}; ${cookieOptions(
       SESSION_DAYS * 86400
     )}`
   );
@@ -111,26 +131,6 @@ export async function clearSession(req, res) {
   res.setHeader(
     "Set-Cookie",
     `${COOKIE_NAME}=; ${cookieOptions(0)}`
-  );
-}
-
-function parseCookies(header) {
-  return Object.fromEntries(
-    header
-      .split(";")
-      .filter(Boolean)
-      .map((part) => {
-        const index = part.indexOf("=");
-
-        if (index < 0) {
-          return [part.trim(), ""];
-        }
-
-        return [
-          part.slice(0, index).trim(),
-          decodeURIComponent(part.slice(index + 1).trim()),
-        ];
-      })
   );
 }
 

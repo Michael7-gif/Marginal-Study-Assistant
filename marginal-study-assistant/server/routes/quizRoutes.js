@@ -25,19 +25,31 @@ router.post("/generate", async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid document ID. Please open the document again.",
+        message:
+          "Invalid document ID. Please open the document again.",
       });
     }
 
     const numericQuestionCount = Number(questionCount);
 
-    if (
-      !Number.isInteger(numericQuestionCount) ||
-      numericQuestionCount <= 0
-    ) {
+    const allowedCounts = [
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100,
+    ];
+
+    if (!allowedCounts.includes(numericQuestionCount)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid question count.",
+        message:
+          "Question count must be between 10 and 100.",
       });
     }
 
@@ -50,6 +62,14 @@ router.post("/generate", async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Document not found.",
+      });
+    }
+
+    if (!doc.text?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This document does not contain enough text to generate a quiz.",
       });
     }
 
@@ -67,14 +87,26 @@ router.post("/generate", async (req, res) => {
     } catch {
       return res.status(500).json({
         success: false,
-        message: "The AI returned an invalid quiz response.",
+        message:
+          "The AI returned an invalid quiz response.",
       });
     }
 
     if (!Array.isArray(data?.questions)) {
       return res.status(500).json({
         success: false,
-        message: "The AI did not return valid quiz questions.",
+        message:
+          "The AI did not return valid quiz questions.",
+      });
+    }
+
+    if (
+      data.questions.length !== numericQuestionCount
+    ) {
+      return res.status(500).json({
+        success: false,
+        message:
+          `Could not generate exactly ${numericQuestionCount} questions. Please try again.`,
       });
     }
 
@@ -85,12 +117,16 @@ router.post("/generate", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Quiz generation error:", error);
+    console.error(
+      "Quiz generation error:",
+      error
+    );
 
     return res.status(error.status || 500).json({
       success: false,
       message:
-        error.message || "Could not generate quiz questions.",
+        error?.message ||
+        "Could not generate quiz questions.",
     });
   }
 });
