@@ -1,4 +1,3 @@
-import { apiPost } from "../../services/api";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -6,8 +5,12 @@ import {
   Search,
   Sparkles,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+import { apiPost } from "../../services/api";
+import { getCurrentDocument } from "../../services/documentApi";
 
 import "./Glossary.css";
 
@@ -20,46 +23,46 @@ function Glossary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    generateGlossary();
-  }, []);
-
   const generateGlossary = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const savedDocument = localStorage.getItem(
-        "studydesk_current_document"
-      );
+      // Get the document selected in My Documents
+      const document = await getCurrentDocument();
 
-      if (!savedDocument) {
+      if (!document) {
         throw new Error("No document has been selected yet.");
       }
 
-      const parsedDocument = JSON.parse(savedDocument);
+      if (!document.id) {
+        throw new Error("The selected document has no valid ID.");
+      }
 
-      if (!parsedDocument.text?.trim()) {
+      if (!document.text?.trim()) {
         throw new Error(
           "The selected document does not contain readable text."
         );
       }
 
-      setDocumentData(parsedDocument);
+      setDocumentData(document);
 
+      // Backend expects documentId, not the document text
       const result = await apiPost("/api/glossary/generate", {
-        text: parsedDocument.text,
+        documentId: Number(document.id),
       });
 
-      if (!Array.isArray(result?.data?.terms) || result.data.terms.length === 0) {
+      const generatedTerms = result?.data?.terms;
+
+      if (!Array.isArray(generatedTerms) || generatedTerms.length === 0) {
         throw new Error("No glossary terms were generated.");
       }
 
-      setTerms(result.data.terms);
+      setTerms(generatedTerms);
 
       localStorage.setItem(
         "studydesk_current_glossary",
-        JSON.stringify(result.data.terms)
+        JSON.stringify(generatedTerms)
       );
     } catch (err) {
       console.error("Glossary error:", err);
@@ -73,6 +76,10 @@ function Glossary() {
     }
   };
 
+  useEffect(() => {
+    generateGlossary();
+  }, []);
+
   const filteredTerms = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -83,7 +90,8 @@ function Glossary() {
     return terms.filter((item) => {
       return (
         item.term?.toLowerCase().includes(query) ||
-        item.definition?.toLowerCase().includes(query)
+        item.definition?.toLowerCase().includes(query) ||
+        item.importance?.toLowerCase().includes(query)
       );
     });
   }, [terms, search]);
@@ -97,7 +105,7 @@ function Glossary() {
           <h1>Glossary</h1>
 
           <p>
-            Important terms and concepts from your document.
+            Important terms and concepts from your study document.
           </p>
         </header>
 
@@ -128,13 +136,13 @@ function Glossary() {
           <h1>Glossary</h1>
 
           <p>
-            Important terms and concepts from your document.
+            Important terms and concepts from your study document.
           </p>
         </header>
 
         <main className="glossary-content">
           <div className="glossary-error">
-            <AlertCircle size={22} />
+            <AlertCircle size={24} />
 
             <div>
               <h2>Couldn't create the glossary</h2>
@@ -147,16 +155,17 @@ function Glossary() {
                   className="glossary-primary-button"
                   onClick={generateGlossary}
                 >
+                  <RefreshCw size={15} />
                   Try Again
                 </button>
 
                 <button
                   type="button"
                   className="glossary-secondary-button"
-                  onClick={() => navigate("/summary")}
+                  onClick={() => navigate("/my-documents")}
                 >
                   <ArrowLeft size={15} />
-                  Back to Summary
+                  My Documents
                 </button>
               </div>
             </div>
@@ -174,8 +183,7 @@ function Glossary() {
         <h1>Glossary</h1>
 
         <p>
-          Important terms and concepts extracted from your
-          document.
+          Important terms and concepts extracted from your document.
         </p>
       </header>
 
@@ -199,7 +207,10 @@ function Glossary() {
               {documentData?.name || "Current Document"}
             </h2>
 
-            <p>{terms.length} important terms</p>
+            <p>
+              {terms.length} important{" "}
+              {terms.length === 1 ? "term" : "terms"}
+            </p>
           </div>
         </div>
 

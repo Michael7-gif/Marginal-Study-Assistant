@@ -1,680 +1,1335 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardCheck,
-  Trophy,
+  Circle,
+  AlertCircle,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "../../services/api";
+
+import { generateQuiz } from "../../services/quizApi";
+import { getCurrentDocument } from "../../services/documentApi";
+
 import "./quiz.css";
 
 const QUESTION_COUNTS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
-const QUESTION_TYPES = [
-  {
-    value: "mixed",
-    label: "Mixed",
-    description: "A balanced mixture of question types",
-  },
-  {
-    value: "multiple-choice",
-    label: "Multiple Choice",
-    description: "Four options for each question",
-  },
-  {
-    value: "true-false",
-    label: "True / False",
-    description: "Choose True or False",
-  },
-  {
-    value: "short-answer",
-    label: "Short Answer",
-    description: "Answer briefly in your own words",
-  },
-  {
-    value: "essay",
-    label: "Essay",
-    description: "Write a detailed answer",
-  },
-];
-
-const DIFFICULTIES = [
-  { value: "easy", label: "Easy", description: "Straightforward recall" },
-  { value: "medium", label: "Medium", description: "Requires understanding" },
-  { value: "hard", label: "Hard", description: "Requires deeper reasoning" },
-  { value: "mixed", label: "Mixed", description: "A mixture of difficulty levels" },
-];
-
-function normalizeAnswer(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function Quiz() {
+export default function Quiz() {
   const navigate = useNavigate();
 
-  const [settings, setSettings] = useState({
-    questionCount: 10,
-    questionType: "mixed",
-    difficulty: "mixed",
-  });
   const [documentData, setDocumentData] = useState(null);
+
+  const [questionCount, setQuestionCount] = useState(10);
+  const [questionType, setQuestionType] = useState("mixed");
+  const [difficulty, setDifficulty] = useState("mixed");
+
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+
+  const [loadingDocument, setLoadingDocument] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+
   const [error, setError] = useState("");
-  const [started, setStarted] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [score, setScore] = useState(0);
 
-  const currentQuestion = questions[currentIndex];
+  useEffect(() => {
+    loadCurrentDocument();
+  }, []);
 
-  const answeredCount = useMemo(
-    () =>
-      questions.filter(
-        (_, index) =>
-          String(answers[index] ?? "").trim().length > 0
-      ).length,
-    [questions, answers]
-  );
+  // ---------------------------------------------------------
+  // LOAD CURRENT DOCUMENT
+  // ---------------------------------------------------------
 
-  const percentage = questions.length
-    ? Math.round((score / questions.length) * 100)
-    : 0;
-
-  const loadDocument = () => {
-    const saved = localStorage.getItem("studydesk_current_document");
-
-    if (!saved) {
-      throw new Error("No document has been selected yet.");
-    }
-
-    let parsed;
-
+  const loadCurrentDocument = async () => {
     try {
-      parsed = JSON.parse(saved);
-    } catch {
-      throw new Error("The saved document data is invalid.");
-    }
+      setLoadingDocument(true);
+      setError("");
 
-    const documentId =
-      parsed?.id ??
-      parsed?.documentId ??
-      parsed?._id;
+      const document = await getCurrentDocument();
 
-    if (!documentId) {
-      throw new Error(
-        "The selected document does not have a valid document ID."
+      if (!document?.id) {
+        throw new Error(
+          "No document has been selected. Please choose a document first."
+        );
+      }
+
+      setDocumentData(document);
+    } catch (err) {
+      console.error("Quiz document error:", err);
+
+      setError(
+        err?.message ||
+          "Could not load the selected document."
       );
+    } finally {
+      setLoadingDocument(false);
     }
-
-    setDocumentData(parsed);
-    return { ...parsed, id: documentId };
   };
 
+  // ---------------------------------------------------------
+  // START QUIZ
+  // ---------------------------------------------------------
+
   const startQuiz = async () => {
+    if (!documentData?.id) {
+      setError(
+        "No document has been selected. Please select a document first."
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-      setFinished(false);
-      setScore(0);
-      setAnswers({});
-      setCurrentIndex(0);
 
-      const document = loadDocument();
-
-      const result = await apiPost("/api/quiz/generate", {
-        documentId: document.id,
-        questionCount: settings.questionCount,
-        questionType: settings.questionType,
-        difficulty: settings.difficulty,
+      const response = await generateQuiz({
+        documentId: documentData.id,
+        questionCount,
+        questionType,
+        difficulty,
       });
 
-      const generatedQuestions = result?.data?.questions;
+      const generatedQuestions =
+        response?.data?.questions ||
+        response?.questions ||
+        [];
 
       if (
         !Array.isArray(generatedQuestions) ||
         generatedQuestions.length === 0
       ) {
-        throw new Error("No quiz questions were generated.");
+        throw new Error(
+          "No quiz questions were generated."
+        );
       }
 
       setQuestions(generatedQuestions);
-      setStarted(true);
+      setAnswers({});
+      setCurrentQuestion(0);
+      setQuizStarted(true);
+      setReviewMode(false);
+      setQuizSubmitted(false);
     } catch (err) {
-      console.error("Quiz error:", err);
+      console.error("Quiz generation error:", err);
+
       setError(
         err?.message ||
-          "Something went wrong while generating the quiz."
+          "Could not create the quiz. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const updateAnswer = (value) => {
+  // ---------------------------------------------------------
+  // QUESTION HELPERS
+  // ---------------------------------------------------------
+
+  const getQuestionText = (question) => {
+    return (
+      question?.question ||
+      question?.questionText ||
+      question?.text ||
+      "Question unavailable"
+    );
+  };
+
+  const getOptions = (question) => {
+    if (Array.isArray(question?.options)) {
+      return question.options;
+    }
+
+    if (
+      question?.options &&
+      typeof question.options === "object"
+    ) {
+      return Object.values(question.options);
+    }
+
+    return [];
+  };
+
+  const getCorrectAnswer = (question) => {
+    return (
+      question?.correctAnswer ??
+      question?.answer ??
+      question?.correct_option ??
+      question?.correct
+    );
+  };
+
+  const getOptionText = (option) => {
+    if (typeof option === "object") {
+      return (
+        option?.text ||
+        option?.label ||
+        option?.value ||
+        ""
+      );
+    }
+
+    return option;
+  };
+
+  const normalizeAnswer = (answer) => {
+    if (answer === null || answer === undefined) {
+      return "";
+    }
+
+    return String(answer)
+      .trim()
+      .toLowerCase();
+  };
+
+  // ---------------------------------------------------------
+  // ANSWER QUESTION
+  // ---------------------------------------------------------
+
+  const selectAnswer = (answer) => {
+    if (quizSubmitted) {
+      return;
+    }
+
     setAnswers((previous) => ({
       ...previous,
-      [currentIndex]: value,
+      [currentQuestion]: answer,
     }));
   };
 
-  const calculateScore = () =>
-    questions.reduce((total, question, index) => {
-      const answer = answers[index];
+  // ---------------------------------------------------------
+  // NAVIGATION
+  // ---------------------------------------------------------
 
-      if (!answer || question.type === "essay") {
-        return total;
-      }
-
-      return normalizeAnswer(answer) === normalizeAnswer(question.answer)
-        ? total + 1
-        : total;
-    }, 0);
-
-  const finishQuiz = async () => {
-    const finalScore = calculateScore();
-    setScore(finalScore);
-    setFinished(true);
-
-    try {
-      const document =
-        documentData || loadDocument();
-
-      await apiPost("/api/progress/quiz", {
-        document: {
-          id:
-            document?.id ??
-            document?.documentId ??
-            document?._id,
-          name:
-            document?.name ||
-            document?.documentName ||
-            "Untitled Document",
-        },
-        score: finalScore,
-        totalQuestions: questions.length,
-        questionType: settings.questionType,
-        difficulty: settings.difficulty,
-      });
-    } catch (err) {
-      console.error("Could not save quiz progress:", err);
+  const goToQuestion = (index) => {
+    if (
+      index >= 0 &&
+      index < questions.length
+    ) {
+      setCurrentQuestion(index);
+      setReviewMode(false);
     }
   };
 
   const nextQuestion = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((index) => index + 1);
-      return;
+    if (
+      currentQuestion <
+      questions.length - 1
+    ) {
+      setCurrentQuestion(
+        (previous) => previous + 1
+      );
+    } else {
+      setReviewMode(true);
     }
-
-    finishQuiz();
   };
 
   const previousQuestion = () => {
-    setCurrentIndex((index) => Math.max(0, index - 1));
+    if (currentQuestion > 0) {
+      setCurrentQuestion(
+        (previous) => previous - 1
+      );
+    }
   };
+
+  const skipQuestion = () => {
+    if (
+      currentQuestion <
+      questions.length - 1
+    ) {
+      setCurrentQuestion(
+        (previous) => previous + 1
+      );
+    } else {
+      setReviewMode(true);
+    }
+  };
+
+  // ---------------------------------------------------------
+  // REVIEW
+  // ---------------------------------------------------------
+
+  const answeredCount = useMemo(() => {
+    return Object.keys(answers).filter(
+      (key) =>
+        answers[key] !== undefined &&
+        answers[key] !== null &&
+        answers[key] !== ""
+    ).length;
+  }, [answers]);
+
+  const unansweredCount =
+    questions.length - answeredCount;
+
+  const answeredQuestions = useMemo(() => {
+    return questions.map((_, index) => ({
+      index,
+      answered:
+        answers[index] !== undefined &&
+        answers[index] !== null &&
+        answers[index] !== "",
+    }));
+  }, [questions, answers]);
+
+  // ---------------------------------------------------------
+  // SUBMIT QUIZ
+  // ---------------------------------------------------------
+
+  const submitQuiz = () => {
+    setQuizSubmitted(true);
+    setReviewMode(false);
+    setCurrentQuestion(0);
+  };
+
+  // ---------------------------------------------------------
+  // CALCULATE RESULT
+  // ---------------------------------------------------------
+
+  const result = useMemo(() => {
+    if (!quizSubmitted) {
+      return {
+        score: 0,
+        answered: answeredCount,
+        unanswered: unansweredCount,
+        percentage: 0,
+      };
+    }
+
+    let correct = 0;
+
+    questions.forEach((question, index) => {
+      const userAnswer = answers[index];
+      const correctAnswer =
+        getCorrectAnswer(question);
+
+      if (
+        userAnswer !== undefined &&
+        normalizeAnswer(userAnswer) ===
+          normalizeAnswer(correctAnswer)
+      ) {
+        correct++;
+      }
+    });
+
+    return {
+      score: correct,
+      answered: answeredCount,
+      unanswered: unansweredCount,
+      percentage:
+        questions.length > 0
+          ? Math.round(
+              (correct / questions.length) * 100
+            )
+          : 0,
+    };
+  }, [
+    quizSubmitted,
+    questions,
+    answers,
+    answeredCount,
+    unansweredCount,
+  ]);
+
+  // ---------------------------------------------------------
+  // RESTART
+  // ---------------------------------------------------------
 
   const restartQuiz = () => {
     setQuestions([]);
     setAnswers({});
-    setCurrentIndex(0);
-    setScore(0);
-    setFinished(false);
-    setStarted(false);
+    setCurrentQuestion(0);
+    setQuizStarted(false);
+    setReviewMode(false);
+    setQuizSubmitted(false);
     setError("");
   };
 
-  if (loading) {
+  // ---------------------------------------------------------
+  // LOADING DOCUMENT
+  // ---------------------------------------------------------
+
+  if (loadingDocument) {
     return (
       <div className="quiz-page">
-        <header className="quiz-header">
-          <div className="quiz-eyebrow">STUDY QUIZ</div>
-          <h1>Quiz</h1>
-          <p>Marginal is creating questions from your document.</p>
-        </header>
-
-        <main className="quiz-content">
-          <div className="quiz-loading">
+        <div className="quiz-main">
+          <div className="quiz-loading-card">
             <div className="quiz-spinner" />
+
             <div>
-              <strong>Building your quiz...</strong>
-              <p>This may take a moment.</p>
+              <h2>Loading your document...</h2>
+
+              <p>
+                Marginal is preparing your quiz.
+              </p>
             </div>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  // ---------------------------------------------------------
+  // ERROR
+  // ---------------------------------------------------------
+
+  if (
+    error &&
+    !quizStarted
+  ) {
     return (
       <div className="quiz-page">
-        <header className="quiz-header">
-          <div className="quiz-eyebrow">STUDY QUIZ</div>
-          <h1>Quiz</h1>
-          <p>Test your understanding of your document.</p>
-        </header>
+        <div className="quiz-main">
+          <button
+            className="quiz-back-button"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
 
-        <main className="quiz-content">
-          <div className="quiz-error">
-            <AlertCircle size={26} />
-            <h2>Couldn't create the quiz</h2>
+          <div className="quiz-error-page">
+            <AlertCircle size={30} />
+
+            <h1>Something went wrong</h1>
+
             <p>{error}</p>
-            <p className="quiz-error-hint">
-              Make sure you have opened a document before starting a quiz.
-            </p>
 
-            <div className="quiz-result-actions">
-              <button
-                type="button"
-                className="quiz-primary-button"
-                onClick={() => {
-                  setError("");
-                  startQuiz();
-                }}
-              >
-                Try Again
-              </button>
-
-              <button
-                type="button"
-                className="quiz-secondary-button"
-                onClick={() => navigate("/summary")}
-              >
-                <ArrowLeft size={15} />
-                Back to Summary
-              </button>
-            </div>
+            <button
+              className="quiz-primary-button"
+              onClick={() => {
+                setError("");
+                loadCurrentDocument();
+              }}
+            >
+              Try Again
+            </button>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
-  if (finished) {
+  // ---------------------------------------------------------
+  // FINAL RESULTS
+  // ---------------------------------------------------------
+
+  if (
+    quizSubmitted &&
+    questions.length > 0
+  ) {
     return (
       <div className="quiz-page">
-        <header className="quiz-header">
-          <div className="quiz-eyebrow">QUIZ COMPLETE</div>
-          <h1>Quiz Results</h1>
-          <p>Review your performance and the questions you answered.</p>
-        </header>
+        <div className="quiz-main">
+          <div className="quiz-results-header">
+            <span className="quiz-eyebrow">
+              QUIZ RESULTS
+            </span>
 
-        <main className="quiz-content">
-          <div className="quiz-result-card">
-            <div className="quiz-trophy">
-              {percentage >= 60 ? (
-                <Trophy size={28} />
+            <h1>Quiz completed</h1>
+
+            <p>
+              Here is how you performed on{" "}
+              <strong>
+                {documentData?.name}
+              </strong>
+              .
+            </p>
+          </div>
+
+          <div className="quiz-result-summary">
+            <div className="quiz-score-circle">
+              <strong>
+                {result.percentage}%
+              </strong>
+
+              <span>
+                {result.score} /{" "}
+                {questions.length}
+              </span>
+            </div>
+
+            <div className="quiz-result-stats">
+              <div className="quiz-stat correct-stat">
+                <CheckCircle2 size={20} />
+
+                <strong>
+                  {result.score}
+                </strong>
+
+                <span>Correct</span>
+              </div>
+
+              <div className="quiz-stat wrong-stat">
+                <XCircle size={20} />
+
+                <strong>
+                  {result.answered -
+                    result.score}
+                </strong>
+
+                <span>Wrong</span>
+              </div>
+
+              <div className="quiz-stat unanswered-stat">
+                <Circle size={20} />
+
+                <strong>
+                  {result.unanswered}
+                </strong>
+
+                <span>Unanswered</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="quiz-results-list">
+            <div className="quiz-results-list-header">
+              <div>
+                <span className="quiz-section-label">
+                  ANSWER REVIEW
+                </span>
+
+                <h2>
+                  Review your answers
+                </h2>
+              </div>
+            </div>
+
+            {questions.map(
+              (question, index) => {
+                const userAnswer =
+                  answers[index];
+
+                const correctAnswer =
+                  getCorrectAnswer(
+                    question
+                  );
+
+                const answered =
+                  userAnswer !==
+                    undefined &&
+                  userAnswer !== null &&
+                  userAnswer !== "";
+
+                const isCorrect =
+                  answered &&
+                  normalizeAnswer(
+                    userAnswer
+                  ) ===
+                    normalizeAnswer(
+                      correctAnswer
+                    );
+
+                return (
+                  <div
+                    key={index}
+                    className={`quiz-result-question ${
+                      isCorrect
+                        ? "result-correct"
+                        : answered
+                        ? "result-wrong"
+                        : "result-unanswered"
+                    }`}
+                  >
+                    <div className="quiz-result-question-number">
+                      {index + 1}
+                    </div>
+
+                    <div className="quiz-result-question-content">
+                      <div className="quiz-result-question-status">
+                        {isCorrect ? (
+                          <>
+                            <CheckCircle2
+                              size={16}
+                            />
+                            Correct
+                          </>
+                        ) : answered ? (
+                          <>
+                            <XCircle
+                              size={16}
+                            />
+                            Wrong
+                          </>
+                        ) : (
+                          <>
+                            <Circle
+                              size={16}
+                            />
+                            Unanswered
+                          </>
+                        )}
+                      </div>
+
+                      <h3>
+                        {getQuestionText(
+                          question
+                        )}
+                      </h3>
+
+                      <div className="quiz-answer-row">
+                        <div>
+                          <span>
+                            YOUR ANSWER
+                          </span>
+
+                          <p>
+                            {answered
+                              ? userAnswer
+                              : "Not answered"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span>
+                            CORRECT ANSWER
+                          </span>
+
+                          <p>
+                            {correctAnswer ??
+                              "Not available"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            )}
+          </div>
+
+          <div className="quiz-result-actions">
+            <button
+              className="quiz-primary-button"
+              onClick={restartQuiz}
+            >
+              <RotateCcw size={16} />
+              New Quiz
+            </button>
+
+            <button
+              className="quiz-secondary-button"
+              onClick={() =>
+                navigate("/dashboard")
+              }
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // REVIEW BEFORE SUBMIT
+  // ---------------------------------------------------------
+
+  if (
+    quizStarted &&
+    reviewMode &&
+    questions.length > 0
+  ) {
+    return (
+      <div className="quiz-page">
+        <div className="quiz-main">
+          <div className="quiz-review-header">
+            <button
+              className="quiz-back-button"
+              onClick={() =>
+                setReviewMode(false)
+              }
+            >
+              <ArrowLeft size={16} />
+              Back to Quiz
+            </button>
+
+            <span className="quiz-eyebrow">
+              FINAL REVIEW
+            </span>
+
+            <h1>
+              Review before submitting
+            </h1>
+
+            <p>
+              Check your answers before you
+              submit your quiz. You can go back
+              and change any answer.
+            </p>
+          </div>
+
+          <div className="quiz-review-summary">
+            <div>
+              <CheckCircle2 size={20} />
+
+              <strong>
+                {answeredCount}
+              </strong>
+
+              <span>Answered</span>
+            </div>
+
+            <div>
+              <Circle size={20} />
+
+              <strong>
+                {unansweredCount}
+              </strong>
+
+              <span>Unanswered</span>
+            </div>
+
+            <div>
+              <BookOpen size={20} />
+
+              <strong>
+                {questions.length}
+              </strong>
+
+              <span>Total</span>
+            </div>
+          </div>
+
+          {unansweredCount > 0 && (
+            <div className="quiz-review-warning">
+              <AlertCircle size={20} />
+
+              <div>
+                <strong>
+                  You have {unansweredCount}{" "}
+                  unanswered{" "}
+                  {unansweredCount === 1
+                    ? "question"
+                    : "questions"}
+                  .
+                </strong>
+
+                <p>
+                  You can submit now, or go back
+                  and answer the unanswered
+                  questions.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="quiz-review-card">
+            <div className="quiz-review-card-header">
+              <div>
+                <span className="quiz-section-label">
+                  QUESTION LIST
+                </span>
+
+                <h2>
+                  All {questions.length} questions
+                </h2>
+              </div>
+
+              <span className="quiz-review-count">
+                {answeredCount}/
+                {questions.length} answered
+              </span>
+            </div>
+
+            <div className="quiz-question-grid">
+              {answeredQuestions.map(
+                ({
+                  index,
+                  answered,
+                }) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`quiz-question-number ${
+                      answered
+                        ? "answered"
+                        : "unanswered"
+                    }`}
+                    onClick={() =>
+                      goToQuestion(index)
+                    }
+                  >
+                    <span>
+                      {index + 1}
+                    </span>
+
+                    {answered ? (
+                      <CheckCircle2
+                        size={14}
+                      />
+                    ) : (
+                      <Circle
+                        size={14}
+                      />
+                    )}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="quiz-submit-card">
+            <div>
+              <strong>
+                Ready to submit?
+              </strong>
+
+              <p>
+                Your answers will be graded only
+                after you submit.
+              </p>
+            </div>
+
+            <button
+              className="quiz-primary-button quiz-submit-button"
+              onClick={submitQuiz}
+            >
+              Submit Quiz
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // ANSWERING QUESTIONS
+  // ---------------------------------------------------------
+
+  if (
+    quizStarted &&
+    questions.length > 0
+  ) {
+    const question =
+      questions[currentQuestion];
+
+    const options =
+      getOptions(question);
+
+    const selectedAnswer =
+      answers[currentQuestion];
+
+    const hasAnswered =
+      selectedAnswer !== undefined &&
+      selectedAnswer !== null &&
+      selectedAnswer !== "";
+
+    const progress =
+      ((currentQuestion + 1) /
+        questions.length) *
+      100;
+
+    return (
+      <div className="quiz-page">
+        <div className="quiz-main">
+          <div className="quiz-answer-topbar">
+            <button
+              className="quiz-back-button"
+              onClick={() =>
+                setReviewMode(true)
+              }
+            >
+              <ArrowLeft size={16} />
+              Review
+            </button>
+
+            <div className="quiz-progress-info">
+              <span>
+                Question{" "}
+                {currentQuestion + 1} of{" "}
+                {questions.length}
+              </span>
+
+              <strong>
+                {answeredCount} answered
+              </strong>
+            </div>
+          </div>
+
+          <div className="quiz-progress-track">
+            <div
+              className="quiz-progress-fill"
+              style={{
+                width: `${progress}%`,
+              }}
+            />
+          </div>
+
+          <div className="quiz-question-card">
+            <div className="quiz-question-meta">
+              <span className="quiz-question-label">
+                QUESTION{" "}
+                {currentQuestion + 1}
+              </span>
+
+              <span className="quiz-type-badge">
+                {question?.type ||
+                  questionType}
+              </span>
+            </div>
+
+            <h1>
+              {getQuestionText(question)}
+            </h1>
+
+            {options.length > 0 ? (
+              <div className="quiz-options">
+                {options.map(
+                  (option, index) => {
+                    const optionText =
+                      getOptionText(option);
+
+                    const isSelected =
+                      selectedAnswer ===
+                      optionText;
+
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        className={`quiz-option ${
+                          isSelected
+                            ? "selected"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          selectAnswer(
+                            optionText
+                          )
+                        }
+                      >
+                        <span className="quiz-option-letter">
+                          {String.fromCharCode(
+                            65 + index
+                          )}
+                        </span>
+
+                        <span className="quiz-option-text">
+                          {optionText}
+                        </span>
+
+                        {isSelected && (
+                          <CheckCircle2
+                            size={19}
+                            className="quiz-selected-icon"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            ) : (
+              <div className="quiz-no-options">
+                <p>
+                  This question does not have
+                  answer options.
+                </p>
+              </div>
+            )}
+
+            <div className="quiz-answer-status">
+              {hasAnswered ? (
+                <>
+                  <CheckCircle2
+                    size={16}
+                  />
+                  Answer saved
+                </>
               ) : (
-                <ClipboardCheck size={28} />
+                <>
+                  <Circle size={16} />
+                  Not answered yet
+                </>
               )}
             </div>
 
-            <div className="quiz-score">
-              {score}/{questions.length}
-            </div>
-
-            <h2>{percentage}%</h2>
-
-            <p>
-              {percentage >= 80
-                ? "Excellent work."
-                : percentage >= 60
-                  ? "Good work. Keep reviewing."
-                  : "Keep studying and try the quiz again."}
-            </p>
-
-            <div className="quiz-result-actions">
+            <div className="quiz-navigation">
               <button
-                type="button"
-                className="quiz-primary-button"
-                onClick={restartQuiz}
-              >
-                Take Another Quiz
-              </button>
-
-              <button
-                type="button"
                 className="quiz-secondary-button"
-                onClick={() => navigate("/summary")}
+                onClick={
+                  previousQuestion
+                }
+                disabled={
+                  currentQuestion === 0
+                }
               >
-                <ArrowLeft size={15} />
-                Back to Summary
+                Previous
               </button>
-            </div>
-          </div>
 
-          <div className="quiz-review">
-            <h2>Review</h2>
+              <button
+                className="quiz-skip-button"
+                onClick={skipQuestion}
+              >
+                {hasAnswered
+                  ? "Next"
+                  : "Skip Question"}
+              </button>
 
-            {questions.map((question, index) => {
-              const userAnswer = answers[index];
-              const isEssay = question.type === "essay";
-              const isCorrect =
-                !isEssay &&
-                normalizeAnswer(userAnswer) ===
-                  normalizeAnswer(question.answer);
-
-              return (
-                <article
-                  className={`quiz-review-item ${
-                    isCorrect ? "correct" : "incorrect"
-                  }`}
-                  key={`${question.question}-${index}`}
-                >
-                  <div className="quiz-review-number">{index + 1}</div>
-
-                  <div>
-                    <strong>{question.question}</strong>
-                    <p>
-                      Your answer:{" "}
-                      {userAnswer || "No answer"}
-                    </p>
-                    <p>
-                      Correct answer:{" "}
-                      {question.answer || "See model answer"}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (started && currentQuestion) {
-    const progress =
-      ((currentIndex + 1) / questions.length) * 100;
-    const selectedAnswer = answers[currentIndex] ?? "";
-    const isLastQuestion =
-      currentIndex === questions.length - 1;
-
-    return (
-      <div className="quiz-page">
-        <header className="quiz-header">
-          <div className="quiz-eyebrow">STUDY QUIZ</div>
-          <h1>{documentData?.name || "Quiz"}</h1>
-          <p>Answer the questions based on your document.</p>
-        </header>
-
-        <main className="quiz-content">
-          <button
-            type="button"
-            className="quiz-back-button"
-            onClick={restartQuiz}
-          >
-            <ArrowLeft size={15} />
-            Exit Quiz
-          </button>
-
-          <div className="quiz-progress">
-            <div className="quiz-progress-info">
-              <span>
-                Question {currentIndex + 1} of {questions.length}
-              </span>
-              <span>{answeredCount} answered</span>
-            </div>
-
-            <div className="quiz-progress-track">
-              <div
-                className="quiz-progress-fill"
-                style={{ width: `${progress}%` }}
-              />
+              <button
+                className="quiz-next-button"
+                onClick={nextQuestion}
+              >
+                {currentQuestion ===
+                questions.length - 1
+                  ? "Review Quiz"
+                  : "Next Question"}
+              </button>
             </div>
           </div>
 
           <div className="quiz-question-navigator">
-            <div className="quiz-question-nav-header">
-              <strong>Questions</strong>
-              <span>
-                {currentIndex + 1}/{questions.length}
-              </span>
-            </div>
+            <div className="quiz-navigator-header">
+              <div>
+                <strong>
+                  Question Navigator
+                </strong>
 
-            <div className="quiz-question-numbers">
-              {questions.map((_, index) => (
-                <button
-                  type="button"
-                  key={index}
-                  className={`quiz-question-number ${
-                    index === currentIndex ? "current" : ""
-                  } ${
-                    String(answers[index] ?? "").trim()
-                      ? "answered"
-                      : ""
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <article className="quiz-question-card">
-            <div className="quiz-question-top">
-              <span className="quiz-question-label">
-                QUESTION {currentIndex + 1}
-              </span>
-
-              <span className="quiz-type-badge">
-                {(currentQuestion.type || "mixed").replace(
-                  "-",
-                  " "
-                )}
-              </span>
-            </div>
-
-            <h2>{currentQuestion.question}</h2>
-
-            {Array.isArray(currentQuestion.options) &&
-            currentQuestion.options.length > 0 ? (
-              <div className="quiz-options">
-                {currentQuestion.options.map((option, index) => (
-                  <button
-                    type="button"
-                    key={`${option}-${index}`}
-                    className={`quiz-option ${
-                      selectedAnswer === option ? "selected" : ""
-                    }`}
-                    onClick={() => updateAnswer(option)}
-                  >
-                    <span className="quiz-option-letter">
-                      {String.fromCharCode(65 + index)}
-                    </span>
-                    <span>{option}</span>
-                  </button>
-                ))}
+                <span>
+                  Jump to any question
+                </span>
               </div>
-            ) : (
-              <textarea
-                className={`quiz-answer-input ${
-                  currentQuestion.type === "essay"
-                    ? "essay-input"
-                    : ""
-                }`}
-                placeholder={
-                  currentQuestion.type === "essay"
-                    ? "Write your answer..."
-                    : "Type your answer..."
-                }
-                value={selectedAnswer}
-                onChange={(event) =>
-                  updateAnswer(event.target.value)
-                }
-              />
-            )}
 
-            {currentQuestion.type === "essay" && (
-              <p className="quiz-answer-hint">
-                Essay answers are reviewed against the model answer.
-              </p>
-            )}
-          </article>
+              <span>
+                {answeredCount}/
+                {questions.length} answered
+              </span>
+            </div>
 
-          <div className="quiz-navigation">
-            <button
-              type="button"
-              className="quiz-secondary-button"
-              onClick={previousQuestion}
-              disabled={currentIndex === 0}
-            >
-              <ChevronLeft size={16} />
-              Previous
-            </button>
-
-            <button
-              type="button"
-              className="quiz-primary-button"
-              onClick={nextQuestion}
-            >
-              {isLastQuestion ? (
-                <>
-                  <CheckCircle2 size={16} />
-                  Finish Quiz
-                </>
-              ) : (
-                <>
-                  Next
-                  <ChevronRight size={16} />
-                </>
+            <div className="quiz-question-grid">
+              {answeredQuestions.map(
+                ({
+                  index,
+                  answered,
+                }) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`quiz-question-number ${
+                      answered
+                        ? "answered"
+                        : "unanswered"
+                    } ${
+                      index ===
+                      currentQuestion
+                        ? "current"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      goToQuestion(index)
+                    }
+                  >
+                    {index + 1}
+                  </button>
+                )
               )}
-            </button>
+            </div>
+
+            <div className="quiz-legend">
+              <span>
+                <i className="legend-current" />
+                Current
+              </span>
+
+              <span>
+                <i className="legend-answered" />
+                Answered
+              </span>
+
+              <span>
+                <i className="legend-unanswered" />
+                Unanswered
+              </span>
+            </div>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
+  // ---------------------------------------------------------
+  // QUIZ SETUP
+  // ---------------------------------------------------------
+
   return (
     <div className="quiz-page">
-      <header className="quiz-header">
-        <div className="quiz-eyebrow">STUDY QUIZ</div>
-        <h1>Create a Quiz</h1>
-        <p>Choose how you want Marginal to test your understanding.</p>
-      </header>
-
-      <main className="quiz-content">
+      <div className="quiz-main">
         <button
-          type="button"
           className="quiz-back-button"
-          onClick={() => navigate("/summary")}
+          onClick={() => navigate(-1)}
         >
-          <ArrowLeft size={15} />
-          Back to Summary
+          <ArrowLeft size={16} />
+          Back
         </button>
 
-        <div className="quiz-settings-card">
-          <div className="quiz-section-label">QUESTION TYPE</div>
-          <h2>How do you want to be tested?</h2>
+        <div className="quiz-hero">
+          <span className="quiz-eyebrow">
+            MARGINAL STUDY TOOLS
+          </span>
 
-          <div className="quiz-settings-grid">
-            {QUESTION_TYPES.map((type) => (
-              <button
-                type="button"
-                key={type.value}
-                className={`quiz-setting-option ${
-                  settings.questionType === type.value
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() =>
-                  setSettings((previous) => ({
-                    ...previous,
-                    questionType: type.value,
-                  }))
-                }
-              >
-                <strong>{type.label}</strong>
-                <span>{type.description}</span>
-              </button>
-            ))}
-          </div>
+          <h1>Create a Quiz</h1>
+
+          <p>
+            Test your understanding using
+            questions generated directly from
+            your selected study document.
+          </p>
         </div>
 
-        <div className="quiz-settings-card">
-          <div className="quiz-section-label">DIFFICULTY</div>
-          <h2>Choose a difficulty</h2>
+        {error && (
+          <div className="quiz-error">
+            <XCircle size={19} />
 
-          <div className="quiz-settings-grid">
-            {DIFFICULTIES.map((difficulty) => (
-              <button
-                type="button"
-                key={difficulty.value}
-                className={`quiz-setting-option ${
-                  settings.difficulty === difficulty.value
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() =>
-                  setSettings((previous) => ({
-                    ...previous,
-                    difficulty: difficulty.value,
-                  }))
-                }
-              >
-                <strong>{difficulty.label}</strong>
-                <span>{difficulty.description}</span>
-              </button>
-            ))}
+            <div>
+              <strong>
+                Something went wrong
+              </strong>
+
+              <p>{error}</p>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="quiz-settings-card">
-          <div className="quiz-section-label">QUESTION COUNT</div>
-          <h2>How many questions?</h2>
+        {documentData && (
+          <div className="quiz-document-card">
+            <div className="quiz-document-icon">
+              <BookOpen size={22} />
+            </div>
 
-          <div className="quiz-count-grid">
-            {QUESTION_COUNTS.map((count) => (
+            <div>
+              <span>
+                SELECTED DOCUMENT
+              </span>
+
+              <h2>
+                {documentData.name}
+              </h2>
+
+              <p>
+                Your quiz will be generated
+                from this document.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="quiz-settings">
+          <div className="quiz-settings-header">
+            <span className="quiz-section-label">
+              QUIZ SETTINGS
+            </span>
+
+            <h2>
+              How many questions?
+            </h2>
+
+            <p>
+              Choose between 10 and 100
+              questions.
+            </p>
+          </div>
+
+          <div className="quiz-setting-group">
+            <label>
+              Number of questions
+            </label>
+
+            <div className="quiz-count-grid">
+              {QUESTION_COUNTS.map(
+                (count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={`quiz-count-button ${
+                      questionCount === count
+                        ? "selected"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setQuestionCount(
+                        count
+                      )
+                    }
+                  >
+                    {count}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="quiz-setting-group">
+            <label>
+              Question type
+            </label>
+
+            <div className="quiz-choice-grid">
               <button
                 type="button"
-                key={count}
-                className={`quiz-count-option ${
-                  settings.questionCount === count
+                className={`quiz-choice-large ${
+                  questionType === "mixed"
                     ? "selected"
                     : ""
                 }`}
                 onClick={() =>
-                  setSettings((previous) => ({
-                    ...previous,
-                    questionCount: count,
-                  }))
+                  setQuestionType("mixed")
                 }
               >
-                {count}
+                <strong>Mixed</strong>
+
+                <span>
+                  Different question styles
+                </span>
               </button>
-            ))}
+
+              <button
+                type="button"
+                className={`quiz-choice-large ${
+                  questionType ===
+                  "multiple-choice"
+                    ? "selected"
+                    : ""
+                }`}
+                onClick={() =>
+                  setQuestionType(
+                    "multiple-choice"
+                  )
+                }
+              >
+                <strong>
+                  Multiple Choice
+                </strong>
+
+                <span>
+                  Select the correct answer
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`quiz-choice-large ${
+                  questionType ===
+                  "true-false"
+                    ? "selected"
+                    : ""
+                }`}
+                onClick={() =>
+                  setQuestionType(
+                    "true-false"
+                  )
+                }
+              >
+                <strong>
+                  True / False
+                </strong>
+
+                <span>
+                  Choose true or false
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="quiz-setting-group">
+            <label>
+              Difficulty
+            </label>
+
+            <div className="quiz-choice-grid">
+              {[
+                [
+                  "mixed",
+                  "Mixed",
+                  "Balanced difficulty",
+                ],
+                [
+                  "easy",
+                  "Easy",
+                  "Good for revision",
+                ],
+                [
+                  "medium",
+                  "Medium",
+                  "Test your understanding",
+                ],
+                [
+                  "hard",
+                  "Hard",
+                  "Challenge yourself",
+                ],
+              ].map(
+                ([
+                  value,
+                  title,
+                  description,
+                ]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`quiz-choice-large ${
+                      difficulty === value
+                        ? "selected"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setDifficulty(
+                        value
+                      )
+                    }
+                  >
+                    <strong>
+                      {title}
+                    </strong>
+
+                    <span>
+                      {description}
+                    </span>
+                  </button>
+                )
+              )}
+            </div>
           </div>
         </div>
 
         <div className="quiz-start-card">
           <div>
-            <strong>Ready to start?</strong>
+            <strong>
+              {questionCount} questions
+            </strong>
+
             <p>
-              {settings.questionCount} questions ·{" "}
-              {settings.questionType.replace("-", " ")} ·{" "}
-              {settings.difficulty} difficulty
+              {questionType === "mixed"
+                ? "Mixed question types"
+                : questionType}{" "}
+              ·{" "}
+              {difficulty === "mixed"
+                ? "Mixed difficulty"
+                : difficulty}
             </p>
           </div>
 
           <button
-            type="button"
-            className="quiz-primary-button"
+            className="quiz-primary-button quiz-start-button"
             onClick={startQuiz}
+            disabled={
+              loading ||
+              !documentData
+            }
           >
-            Start Quiz
+            {loading
+              ? "Generating..."
+              : "Start Quiz"}
           </button>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
-
-export default Quiz;
