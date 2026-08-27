@@ -5,9 +5,17 @@ const COOKIE_NAME = "marginal_session";
 const SESSION_DAYS = 7;
 
 function cookieOptions(maxAge) {
-  return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${
-    process.env.NODE_ENV === "production" ? "; Secure" : ""
-  }`;
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return [
+    "Path=/",
+    "HttpOnly",
+    `SameSite=${isProduction ? "None" : "Lax"}`,
+    `Max-Age=${maxAge}`,
+    isProduction ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 export function hashPassword(password) {
@@ -22,9 +30,7 @@ export function hashPassword(password) {
       (err, derivedKey) => {
         if (err) return reject(err);
 
-        resolve(
-          `${salt}:${derivedKey.toString("hex")}`
-        );
+        resolve(`${salt}:${derivedKey.toString("hex")}`);
       }
     );
   });
@@ -50,10 +56,7 @@ export function verifyPassword(password, stored) {
 
         resolve(
           expected.length === derivedKey.length &&
-            crypto.timingSafeEqual(
-              expected,
-              derivedKey
-            )
+            crypto.timingSafeEqual(expected, derivedKey)
         );
       }
     );
@@ -83,11 +86,7 @@ export async function issueSession(res, user) {
       )
       VALUES ($1, $2, $3)
     `,
-    [
-      hashToken(token),
-      user.id,
-      expiresAt,
-    ]
+    [hashToken(token), user.id, expiresAt]
   );
 
   res.setHeader(
@@ -100,9 +99,7 @@ export async function issueSession(res, user) {
 
 export async function clearSession(req, res) {
   const token =
-    parseCookies(req.headers.cookie || "")[
-      COOKIE_NAME
-    ];
+    parseCookies(req.headers.cookie || "")[COOKIE_NAME];
 
   if (token) {
     await db.query(
@@ -131,9 +128,7 @@ function parseCookies(header) {
 
         return [
           part.slice(0, index).trim(),
-          decodeURIComponent(
-            part.slice(index + 1).trim()
-          ),
+          decodeURIComponent(part.slice(index + 1).trim()),
         ];
       })
   );
@@ -142,9 +137,7 @@ function parseCookies(header) {
 export async function requireAuth(req, res, next) {
   try {
     const token =
-      parseCookies(req.headers.cookie || "")[
-        COOKIE_NAME
-      ];
+      parseCookies(req.headers.cookie || "")[COOKIE_NAME];
 
     if (!token) {
       return res.status(401).json({
@@ -171,8 +164,7 @@ export async function requireAuth(req, res, next) {
 
     if (
       !session ||
-      new Date(session.expires_at).getTime() <=
-        Date.now()
+      new Date(session.expires_at).getTime() <= Date.now()
     ) {
       await db.query(
         "DELETE FROM sessions WHERE token_hash = $1",
