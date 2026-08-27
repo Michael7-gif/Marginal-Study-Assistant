@@ -1,22 +1,45 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-function getResend() {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not configured.");
+function getTransporter() {
+  const required = [
+    "EMAIL_HOST",
+    "EMAIL_PORT",
+    "EMAIL_USER",
+    "EMAIL_PASSWORD",
+  ];
+
+  for (const key of required) {
+    if (!process.env[key]) {
+      throw new Error(`${key} is not configured.`);
+    }
   }
 
-  return new Resend(process.env.RESEND_API_KEY);
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: Number(process.env.EMAIL_PORT),
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    family: 4,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+  });
 }
 
 export async function sendPasswordResetCode(email, code) {
-  const resend = getResend();
+  const transporter = getTransporter();
 
   const from =
-    process.env.EMAIL_FROM || "Marginal Study Assistant <onboarding@resend.dev>";
+    process.env.EMAIL_FROM ||
+    `Marginal Study Assistant <${process.env.EMAIL_USER}>`;
 
-  const { data, error } = await resend.emails.send({
+  const mailOptions = {
     from,
-    to: [email],
+    to: email,
     subject: "Your Marginal password reset code",
     text: `Your Marginal password reset code is ${code}. It expires in 10 minutes. If you did not request this, you can ignore this email.`,
     html: `
@@ -45,14 +68,20 @@ export async function sendPasswordResetCode(email, code) {
         </body>
       </html>
     `,
-  });
+  };
 
-  if (error) {
-    console.error("Resend email error:", error);
-    throw new Error(error.message || "Could not send password reset email.");
+  try {
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log(
+      `Password reset email sent successfully: ${info.messageId}`
+    );
+
+    return info;
+  } catch (error) {
+    console.error("Gmail email error:", error);
+    throw new Error(
+      error?.message || "Could not send password reset email."
+    );
   }
-
-  console.log(`Password reset email sent successfully: ${data?.id || "unknown"}`);
-
-  return data;
 }
