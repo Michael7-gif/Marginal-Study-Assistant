@@ -728,3 +728,27 @@
     padding: 0 16px;
   }
 }
+
+@media (max-width: 360px) {
+  .pdf-reader-title {
+    font-size: 20px;
+  }
+
+  .pdf-upload-card {
+    padding: 32px 14px;
+  }
+
+  .pdf-upload-icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .pdf-text-container {
+    padding: 14px;
+    font-size: 13px;
+  }
+
+  .pdf-text-card {
+    padding: 14px;
+  }
+}

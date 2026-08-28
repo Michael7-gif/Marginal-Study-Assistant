@@ -56,17 +56,8 @@ function Sidebar() {
 
   const handleLinkClick = (event) => {
     if (window.innerWidth <= 760) {
-      if (!mobileOpen) {
-
-
-        event.preventDefault(); 
-        event.stopPropagation();
-        setMobileOpen(true);
-      } else {
-
-
-        setMobileOpen(false);
-      }
+      event.stopPropagation();
+      setMobileOpen(false);
     }
   };
 

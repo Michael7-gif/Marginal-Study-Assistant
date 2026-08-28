@@ -226,7 +226,9 @@
 .progress-document-list { display: grid; gap: 1px; background: var(--border-soft); border: 0; }
 .progress-document-item { padding: 17px; background: var(--panel); }
 .progress-document-top { display: flex; justify-content: space-between; gap: 20px; }
-.progress-document-top strong { color: var(--text); font-size: 13px; }
+.progress-document-top > div { flex: 1 1 auto; min-width: 0; }
+.progress-document-top strong { display: block; color: var(--text); font-size: 13px; }
+.progress-document-top > div > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .progress-document-top span { display: block; margin-top: 4px; color: var(--muted-2); font-size: 11px; }
 .progress-document-top > strong:last-child { flex: 0 0 auto; }
 .progress-document-track { height: 7px; margin-top: 13px; }
