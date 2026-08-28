@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import cookieParser from "cookie-parser";
 import { initDb } from "./db.js";
 import progressRoutes from "./routes/progressRoutes.js";
 import qaRoutes from "./routes/qaRoutes.js";
@@ -22,7 +22,7 @@ dotenv.config({
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
-
+const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -45,7 +45,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
+app.use(cookieParser());
 app.use(
   express.json({
     limit: "20mb",
