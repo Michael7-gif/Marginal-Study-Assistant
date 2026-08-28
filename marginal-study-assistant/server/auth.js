@@ -5,7 +5,8 @@ const COOKIE_NAME = "marginal_session";
 const SESSION_DAYS = 7;
 
 function cookieOptions(maxAge) {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction =
+    process.env.NODE_ENV === "production";
 
   return [
     "Path=/",
@@ -72,7 +73,7 @@ function hashToken(token) {
 
 function parseCookies(header) {
   return Object.fromEntries(
-    header
+    String(header || "")
       .split(";")
       .filter(Boolean)
       .map((part) => {
@@ -84,7 +85,9 @@ function parseCookies(header) {
 
         return [
           part.slice(0, index).trim(),
-          decodeURIComponent(part.slice(index + 1).trim()),
+          decodeURIComponent(
+            part.slice(index + 1).trim()
+          ),
         ];
       })
   );
@@ -109,12 +112,12 @@ export async function issueSession(res, user) {
     [hashToken(token), user.id, expiresAt]
   );
 
-  res.setHeader(
-    "Set-Cookie",
-    `${COOKIE_NAME}=${encodeURIComponent(token)}; ${cookieOptions(
-      SESSION_DAYS * 86400
-    )}`
-  );
+  const cookie = [
+    `${COOKIE_NAME}=${encodeURIComponent(token)}`,
+    cookieOptions(SESSION_DAYS * 86400),
+  ].join("; ");
+
+  res.setHeader("Set-Cookie", cookie);
 }
 
 export async function clearSession(req, res) {
@@ -128,16 +131,21 @@ export async function clearSession(req, res) {
     );
   }
 
-  res.setHeader(
-    "Set-Cookie",
-    `${COOKIE_NAME}=; ${cookieOptions(0)}`
-  );
+  const cookie = [
+    `${COOKIE_NAME}=`,
+    cookieOptions(0),
+  ].join("; ");
+
+  res.setHeader("Set-Cookie", cookie);
 }
 
 export async function requireAuth(req, res, next) {
   try {
-    const token =
-      parseCookies(req.headers.cookie || "")[COOKIE_NAME];
+    const cookies = parseCookies(
+      req.headers.cookie || ""
+    );
+
+    const token = cookies[COOKIE_NAME];
 
     if (!token) {
       return res.status(401).json({
