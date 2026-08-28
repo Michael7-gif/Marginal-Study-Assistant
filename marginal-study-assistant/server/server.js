@@ -81,9 +81,9 @@ async function startServer() {
   try {
     await initDb();
 
-    app.listen(PORT, () => {
-      console.log(`Marginal backend running on port ${PORT}`);
-    });
+   app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Marginal backend running on port ${PORT}`);
+});
   } catch (error) {
     console.error("Failed to start Marginal backend:", error);
     process.exit(1);
