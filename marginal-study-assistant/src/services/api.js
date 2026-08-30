@@ -22,9 +22,7 @@ async function request(path, options = {}) {
     });
   } catch {
     throw new Error(
-      `Could not connect to Marginal's backend${
-        API_URL ? ` at ${API_URL}` : ""
-      }. Make sure the backend is running.`
+      `Could not connect to Marginal's backend.`
     );
   }
 
