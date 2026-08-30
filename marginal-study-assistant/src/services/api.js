@@ -22,7 +22,7 @@ async function request(path, options = {}) {
     });
   } catch {
     throw new Error(
-      `Could not connect to Marginal's backend.`
+      "Could not connect to Marginal's backend."
     );
   }
 
@@ -31,12 +31,15 @@ async function request(path, options = {}) {
   try {
     result = await response.json();
   } catch {
-    throw new Error("The backend returned an invalid response.");
+    throw new Error(
+      "The backend returned an invalid response."
+    );
   }
 
   if (!response.ok || !result?.success) {
     throw new Error(
-      result?.message || `Request failed (${response.status}).`
+      result?.message ||
+        `Request failed (${response.status}).`
     );
   }
 
