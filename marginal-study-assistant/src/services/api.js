@@ -1,5 +1,6 @@
-const DEFAULT_API_URL =
-  "https://marginal-study-assistant-api.onrender.com";
+const DEFAULT_API_URL = import.meta.env.PROD
+  ? ""
+  : "https://marginal-study-assistant-api.onrender.com";
 
 export const API_URL = (
   import.meta.env.VITE_API_URL || DEFAULT_API_URL
@@ -21,7 +22,9 @@ async function request(path, options = {}) {
     });
   } catch {
     throw new Error(
-      `Could not connect to Marginal's backend at ${API_URL}. Make sure the backend is running.`
+      `Could not connect to Marginal's backend${
+        API_URL ? ` at ${API_URL}` : ""
+      }. Make sure the backend is running.`
     );
   }
 
