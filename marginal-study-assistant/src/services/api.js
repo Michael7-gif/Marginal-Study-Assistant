@@ -1,26 +1,41 @@
-const DEFAULT_API_URL = import.meta.env.PROD
-  ? ""
-  : "https://marginal-study-assistant-api.onrender.com";
+const DEFAULT_LOCAL_API_URL =
+  "https://marginal-study-assistant-api.onrender.com";
 
-export const API_URL = (
-  import.meta.env.VITE_API_URL || DEFAULT_API_URL
-).replace(/\/$/, "");
+export const API_URL = import.meta.env.PROD
+  ? ""
+  : (
+      import.meta.env.VITE_API_URL ||
+      DEFAULT_LOCAL_API_URL
+    ).replace(/\/$/, "");
 
 async function request(path, options = {}) {
+  const requestUrl = `${API_URL}${path}`;
+
   let response;
 
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(requestUrl, {
       ...options,
       credentials: "include",
+      cache: "no-store",
       headers: {
+        Accept: "application/json",
+
         ...(options.body !== undefined
-          ? { "Content-Type": "application/json" }
+          ? {
+              "Content-Type": "application/json",
+            }
           : {}),
+
         ...(options.headers || {}),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error(
+      "Marginal API connection error:",
+      error
+    );
+
     throw new Error(
       "Could not connect to Marginal's backend."
     );
@@ -31,6 +46,12 @@ async function request(path, options = {}) {
   try {
     result = await response.json();
   } catch {
+    if (!response.ok) {
+      throw new Error(
+        `Request failed (${response.status}).`
+      );
+    }
+
     throw new Error(
       "The backend returned an invalid response."
     );
