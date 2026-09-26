@@ -15,10 +15,42 @@ import Quiz from "./pages/Quiz/Quiz";
 import Progress from "./pages/Progress/Progress";
 
 function PrivateShell() {
-  return <div className="app-shell"><Sidebar /><main className="app-main"><Routes>
-    <Route path="/" element={<Dashboard />} /><Route path="/documents" element={<MyDocuments />} /><Route path="/reader" element={<PDFReader />} />
-    <Route path="/summary" element={<Summary />} /><Route path="/sections" element={<Sections />} /><Route path="/glossary" element={<Glossary />} /><Route path="/qa" element={<QA />} /><Route path="/quiz" element={<Quiz />} /><Route path="/progress" element={<Progress />} />
-  </Routes></main></div>;
+  return (
+    <div className="app-shell">
+      <Sidebar />
+
+      <main className="app-main">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/documents" element={<MyDocuments />} />
+          <Route path="/reader" element={<PDFReader />} />
+          <Route path="/summary" element={<Summary />} />
+          <Route path="/sections" element={<Sections />} />
+          <Route path="/glossary" element={<Glossary />} />
+          <Route path="/qa" element={<QA />} />
+          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/progress" element={<Progress />} />
+        </Routes>
+      </main>
+    </div>
+  );
 }
 
-export default function App(){return <BrowserRouter><Routes><Route path="/login" element={<Login/>}/><Route path="/forgot-password" element={<ForgotPassword/>}/><Route path="/signup" element={<Signup/>}/><Route element={<ProtectedRoute/>}><Route path="*" element={<PrivateShell/>}/></Route></Routes></BrowserRouter>;}
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+        <Route path="/signup" element={<Signup />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="*" element={<PrivateShell />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}

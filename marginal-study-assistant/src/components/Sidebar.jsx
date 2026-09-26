@@ -1,100 +1,136 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import {
-  BarChart3,
-  BookOpen,
-  FileText,
-  HelpCircle,
-  Layers3,
-  ListChecks,
-  MessageCircleQuestion,
-  Sparkles,
-} from "lucide-react";
 import "./Sidebar.css";
 
 const links = [
-  ["Dashboard", "/", BarChart3],
-  ["My Documents", "/documents", FileText],
-  ["Reader", "/reader", BookOpen],
-  ["Summary", "/summary", Sparkles],
-  ["Sections", "/sections", Layers3],
-  ["Glossary", "/glossary", ListChecks],
-  ["Q&A", "/qa", MessageCircleQuestion],
-  ["Quiz", "/quiz", HelpCircle],
-  ["Progress", "/progress", BarChart3],
+  ["Dashboard", "/"],
+  ["My Documents", "/documents"],
+  ["Reader", "/reader"],
+  ["Summary", "/summary"],
+  ["Sections", "/sections"],
+  ["Glossary", "/glossary"],
+  ["Q&A", "/qa"],
+  ["Quiz", "/quiz"],
+  ["Progress", "/progress"],
 ];
 
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebarRef = useRef(null);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
       if (
+        window.innerWidth <= 760 &&
         sidebarRef.current &&
-        !sidebarRef.current.contains(event.target) &&
-        window.innerWidth <= 760
+        !sidebarRef.current.contains(event.target)
       ) {
         setMobileOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
+
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, []);
 
-  const handleSidebarClick = () => {
-    if (window.innerWidth <= 760 && !mobileOpen) {
-      setMobileOpen(true);
-    }
-  };
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 760) {
+        setMobileOpen(false);
+      }
+    };
 
-  const handleLinkClick = (event) => {
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  const handleLinkClick = () => {
     if (window.innerWidth <= 760) {
-      event.stopPropagation();
       setMobileOpen(false);
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
-    <aside
-      ref={sidebarRef}
-      className={`app-sidebar ${mobileOpen ? "mobile-open" : ""}`}
-      onClick={handleSidebarClick}
-    >
-      <div className="sidebar-brand">
-        <div className="sidebar-mark">M</div>
-        <div className="sidebar-brand-text">
-          <strong>Marginal</strong>
-          <span>Study Assistant</span>
+    <>
+      <button
+        type="button"
+        className="mobile-menu-button"
+        aria-label={
+          mobileOpen ? "Close navigation menu" : "Open navigation menu"
+        }
+        aria-expanded={mobileOpen}
+        onClick={() => setMobileOpen((open) => !open)}
+      >
+        {mobileOpen ? "×" : "☰"}
+      </button>
+
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay"
+          aria-hidden="true"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside
+        ref={sidebarRef}
+        className={`app-sidebar ${mobileOpen ? "mobile-open" : ""}`}
+      >
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-text">
+            <strong>Marginal</strong>
+            <span>Study Assistant</span>
+          </div>
         </div>
-      </div>
 
-      <nav className="sidebar-nav" aria-label="Main navigation">
-        {links.map(([name, path, Icon]) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === "/"}
+        <nav className="sidebar-nav" aria-label="Main navigation">
+          {links.map(([name, path]) => (
+            <NavLink
+              key={path}
+              to={path}
+              end={path === "/"}
+              className={({ isActive }) =>
+                `sidebar-link ${isActive ? "active" : ""}`
+              }
+              onClick={handleLinkClick}
+            >
+              <span>{name}</span>
+            </NavLink>
+          ))}
+        </nav>
 
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? "active" : ""}`
-            }
-            onClick={handleLinkClick}
+        <footer className="sidebar-footer">
+          <div className="sidebar-user" title={user?.email}>
+            {user?.email}
+          </div>
+
+          <button
+            type="button"
+            className="sidebar-logout"
+            onClick={handleLogout}
           >
-            <Icon size={18} strokeWidth={1.8} />
-            <span>{name}</span>
-          </NavLink>
-        ))}
-      </nav>
+            Sign out
+          </button>
 
-      <footer className="sidebar-footer"><div className="sidebar-user" title={user?.email}>{user?.email}</div><button type="button" className="sidebar-logout" onClick={async () => { await logout(); navigate("/login", { replace: true }); }}>Sign out</button><div>© 2026 Michael</div></footer>
-    </aside>
+          <div>© 2026 Michael</div>
+        </footer>
+      </aside>
+    </>
   );
 }
 

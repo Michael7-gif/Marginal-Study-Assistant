@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Send,
-  Sparkles,
+  FileText,
   User,
   Copy,
   Check,
@@ -25,11 +25,11 @@ function QA() {
   const [error, setError] = useState("");
   const [copiedIndex, setCopiedIndex] = useState(null);
 
-  
   useEffect(() => {
     const loadQA = async () => {
       try {
         const parsedDocument = await getCurrentDocument();
+
         setDocumentData(parsedDocument);
 
         const savedConversation = localStorage.getItem(
@@ -45,7 +45,11 @@ function QA() {
         }
       } catch (err) {
         console.error("Q&A loading error:", err);
-        setError(err?.message || "Could not load the selected document.");
+
+        setError(
+          err?.message ||
+            "Could not load the selected document."
+        );
       } finally {
         setPageLoading(false);
       }
@@ -54,7 +58,6 @@ function QA() {
     loadQA();
   }, []);
 
-  
   useEffect(() => {
     if (conversation.length > 0) {
       localStorage.setItem(
@@ -63,7 +66,6 @@ function QA() {
       );
     }
   }, [conversation]);
-
 
   const handleAsk = async (event) => {
     event.preventDefault();
@@ -84,7 +86,10 @@ function QA() {
     setLoading(true);
 
     try {
-      const result = await apiPost("/api/qa/ask", { documentId: documentData.id, question: currentQuestion });
+      const result = await apiPost("/api/qa/ask", {
+        documentId: documentData.id,
+        question: currentQuestion,
+      });
 
       const newConversation = [
         ...conversation,
@@ -114,7 +119,6 @@ function QA() {
     }
   };
 
-  
   const suggestedQuestions = [
     "What is the main idea of this document?",
     "What are the most important concepts?",
@@ -125,7 +129,6 @@ function QA() {
     setQuestion(value);
   };
 
-  
   const handleCopy = async (answer, index) => {
     try {
       await navigator.clipboard.writeText(answer);
@@ -140,7 +143,6 @@ function QA() {
     }
   };
 
- 
   const handleClear = () => {
     setConversation([]);
 
@@ -149,7 +151,6 @@ function QA() {
     );
   };
 
-  
   if (pageLoading) {
     return (
       <div className="qa-page">
@@ -184,7 +185,6 @@ function QA() {
     );
   }
 
- 
   if (error && !documentData) {
     return (
       <div className="qa-page">
@@ -220,10 +220,8 @@ function QA() {
     );
   }
 
-  
   return (
     <div className="qa-page">
-
       <header className="qa-header">
         <div className="qa-eyebrow">
           DOCUMENT Q&A
@@ -238,9 +236,6 @@ function QA() {
       </header>
 
       <main className="qa-content">
-
-        
-
         <button
           type="button"
           className="qa-back-button"
@@ -250,12 +245,9 @@ function QA() {
           Back to Summary
         </button>
 
-        
-
         <div className="qa-document-card">
-
           <div className="qa-document-icon">
-            <Sparkles size={20} />
+            <FileText size={20} />
           </div>
 
           <div>
@@ -269,18 +261,10 @@ function QA() {
               of this document.
             </p>
           </div>
-
         </div>
-
-        
 
         {conversation.length === 0 && (
           <section className="qa-welcome">
-
-            <div className="qa-welcome-icon">
-              <Sparkles size={24} />
-            </div>
-
             <h2>
               What would you like to know?
             </h2>
@@ -291,7 +275,6 @@ function QA() {
             </p>
 
             <div className="qa-suggestions">
-
               {suggestedQuestions.map(
                 (suggestion) => (
                   <button
@@ -307,13 +290,9 @@ function QA() {
                   </button>
                 )
               )}
-
             </div>
-
           </section>
         )}
-
-       
 
         {error && documentData && (
           <div className="qa-inline-error">
@@ -321,13 +300,9 @@ function QA() {
           </div>
         )}
 
-        
-
         {conversation.length > 0 && (
           <section className="qa-conversation">
-
             <div className="qa-conversation-header">
-
               <div>
                 <div className="qa-section-label">
                   CONVERSATION
@@ -346,7 +321,6 @@ function QA() {
                 <Trash2 size={15} />
                 Clear
               </button>
-
             </div>
 
             {conversation.map(
@@ -355,17 +329,12 @@ function QA() {
                   className="qa-message-group"
                   key={index}
                 >
-
-                  
-
                   <div className="qa-question">
-
                     <div className="qa-avatar qa-user-avatar">
                       <User size={16} />
                     </div>
 
                     <div className="qa-message-content">
-
                       <div className="qa-message-label">
                         YOU
                       </div>
@@ -373,23 +342,16 @@ function QA() {
                       <p>
                         {item.question}
                       </p>
-
                     </div>
-
                   </div>
 
-                  
-
                   <div className="qa-answer">
-
                     <div className="qa-avatar qa-ai-avatar">
-                      <Sparkles size={16} />
+                      M
                     </div>
 
                     <div className="qa-message-content">
-
                       <div className="qa-answer-top">
-
                         <div className="qa-message-label">
                           MARGINAL
                         </div>
@@ -416,7 +378,6 @@ function QA() {
                             </>
                           )}
                         </button>
-
                       </div>
 
                       <p>
@@ -431,29 +392,20 @@ function QA() {
                           {item.source}
                         </div>
                       )}
-
                     </div>
-
                   </div>
-
                 </div>
               )
             )}
-
           </section>
         )}
 
-        
-      
-
         <section className="qa-ask-card">
-
           <div className="qa-section-label">
             ASK A QUESTION
           </div>
 
           <form onSubmit={handleAsk}>
-
             <textarea
               value={question}
               onChange={(event) =>
@@ -465,7 +417,6 @@ function QA() {
             />
 
             <div className="qa-form-bottom">
-
               <p>
                 Marginal answers using your document.
               </p>
@@ -489,13 +440,9 @@ function QA() {
                   </>
                 )}
               </button>
-
             </div>
-
           </form>
-
         </section>
-
       </main>
     </div>
   );

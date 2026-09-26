@@ -1,9 +1,9 @@
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  BookOpen,
+  FileText,
   Search,
-  Sparkles,
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
@@ -28,7 +28,6 @@ function Glossary() {
       setLoading(true);
       setError("");
 
-      // Get the document selected in My Documents
       const document = await getCurrentDocument();
 
       if (!document) {
@@ -47,7 +46,6 @@ function Glossary() {
 
       setDocumentData(document);
 
-      // Backend expects documentId, not the document text
       const result = await apiPost("/api/glossary/generate", {
         documentId: Number(document.id),
       });
@@ -162,7 +160,7 @@ function Glossary() {
                 <button
                   type="button"
                   className="glossary-secondary-button"
-                  onClick={() => navigate("/my-documents")}
+                  onClick={() => navigate("/documents")}
                 >
                   <ArrowLeft size={15} />
                   My Documents
@@ -199,7 +197,7 @@ function Glossary() {
 
         <div className="glossary-document">
           <div className="glossary-document-icon">
-            <BookOpen size={22} />
+            <FileText size={22} />
           </div>
 
           <div>
@@ -215,10 +213,6 @@ function Glossary() {
         </div>
 
         <div className="glossary-intro">
-          <div className="glossary-intro-icon">
-            <Sparkles size={18} />
-          </div>
-
           <div>
             <h2>Terms to remember</h2>
 

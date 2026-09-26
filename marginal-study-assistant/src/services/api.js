@@ -1,4 +1,6 @@
-const API_URL = "";
+const API_URL = import.meta.env.DEV
+  ? "http://localhost:5000"
+  : "";
 
 async function request(path, options = {}) {
   const requestUrl = `${API_URL}${path}`;

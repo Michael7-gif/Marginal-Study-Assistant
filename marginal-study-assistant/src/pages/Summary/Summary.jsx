@@ -1,11 +1,8 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   AlertCircle,
-  Sparkles,
   ArrowLeft,
-  BookOpen,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "../../services/api";
@@ -21,15 +18,35 @@ function Summary() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const summaryRequestStarted = useRef(false);
+
   useEffect(() => {
+    if (summaryRequestStarted.current) {
+      return;
+    }
+
+    summaryRequestStarted.current = true;
+
     const loadSummary = async () => {
       try {
         const parsedDocument = await getCurrentDocument();
+
+        if (!parsedDocument?.id) {
+          throw new Error(
+            "No document has been selected yet."
+          );
+        }
+
         setDocumentData(parsedDocument);
 
-        const result = await apiPost("/api/ai/summarize", { documentId: parsedDocument.id });
+        const result = await apiPost(
+          "/api/ai/summarize",
+          {
+            documentId: parsedDocument.id,
+          }
+        );
 
-        if (!result.data) {
+        if (!result?.data) {
           throw new Error(
             "The AI returned an empty summary."
           );
@@ -56,7 +73,6 @@ function Summary() {
     loadSummary();
   }, []);
 
-  
   if (error) {
     return (
       <div className="summary-page">
@@ -98,7 +114,6 @@ function Summary() {
     );
   }
 
-  
   if (loading || !documentData) {
     return (
       <div className="summary-page">
@@ -135,11 +150,8 @@ function Summary() {
     );
   }
 
-  
   return (
     <div className="summary-page">
-
-      
       <header className="summary-header">
         <div className="sd-mono">
           DOCUMENT SUMMARY
@@ -154,11 +166,7 @@ function Summary() {
         </p>
       </header>
 
-      
       <main className="summary-content">
-
-        
-
         <button
           type="button"
           className="summary-back-button"
@@ -168,44 +176,32 @@ function Summary() {
           Back to Reader
         </button>
 
-        
-
         <div className="summary-document">
-
           <div className="summary-document-icon">
             <FileText size={22} />
           </div>
 
           <div className="summary-document-info">
-
             <h2>
               {documentData.name}
             </h2>
 
             <p>
               {documentData.format || "Document"}
-              {documentData.pageCount > 0 ? ` · ${documentData.pageCount} pages` : ""}
+              {documentData.pageCount > 0
+                ? ` · ${documentData.pageCount} pages`
+                : ""}
               {" · "}
               {documentData.text
                 ? documentData.text.length.toLocaleString()
                 : 0}{" "}
               characters
             </p>
-
           </div>
-
         </div>
 
-        
-
         <div className="summary-intro">
-
-          <div className="summary-intro-icon">
-            <Sparkles size={18} />
-          </div>
-
           <div>
-
             <h2>
               Your AI study summary
             </h2>
@@ -214,15 +210,10 @@ function Summary() {
               Marginal analyzed your document and
               extracted the important information.
             </p>
-
           </div>
-
         </div>
 
-        
-
         <section className="summary-card">
-
           <div className="summary-card-label">
             SHORT SUMMARY
           </div>
@@ -235,13 +226,9 @@ function Summary() {
             {summary?.shortSummary ||
               "No short summary was generated."}
           </p>
-
         </section>
 
-        
-
         <section className="summary-card">
-
           <div className="summary-card-label">
             DETAILED SUMMARY
           </div>
@@ -254,13 +241,9 @@ function Summary() {
             {summary?.detailedSummary ||
               "No detailed summary was generated."}
           </p>
-
         </section>
 
-       
-
         <section className="summary-card">
-
           <div className="summary-card-label">
             KEY POINTS
           </div>
@@ -271,15 +254,12 @@ function Summary() {
 
           {summary?.keyPoints?.length > 0 ? (
             <div className="key-points">
-
               {summary.keyPoints.map(
                 (point, index) => (
-
                   <div
                     className="key-point"
                     key={index}
                   >
-
                     <div className="key-point-number">
                       {index + 1}
                     </div>
@@ -287,26 +267,19 @@ function Summary() {
                     <div className="key-point-text">
                       {point}
                     </div>
-
                   </div>
-
                 )
               )}
-
             </div>
           ) : (
             <p className="summary-text">
               No key points were generated.
             </p>
           )}
-
         </section>
-
-        
 
         {summary?.importantTerms?.length > 0 && (
           <section className="summary-card">
-
             <div className="summary-card-label">
               IMPORTANT TERMS
             </div>
@@ -316,21 +289,17 @@ function Summary() {
             </h2>
 
             <div className="key-points">
-
               {summary.importantTerms.map(
                 (item, index) => (
-
                   <div
                     className="key-point"
                     key={index}
                   >
-
                     <div className="key-point-number">
                       {index + 1}
                     </div>
 
                     <div className="key-point-text">
-
                       <strong>
                         {item.term}
                       </strong>
@@ -338,29 +307,16 @@ function Summary() {
                       <br />
 
                       {item.meaning}
-
                     </div>
-
                   </div>
-
                 )
               )}
-
             </div>
-
           </section>
         )}
 
-        
-
         <section className="summary-study-card">
-
-          <div className="summary-study-icon">
-            <BookOpen size={20} />
-          </div>
-
           <div className="summary-study-content">
-
             <h2>
               Ready to test yourself?
             </h2>
@@ -369,7 +325,6 @@ function Summary() {
               Use this document to generate questions
               and check how well you understand it.
             </p>
-
           </div>
 
           <button
@@ -379,12 +334,9 @@ function Summary() {
           >
             Take a Quiz
           </button>
-
         </section>
 
-        
         <section className="summary-card">
-
           <div className="summary-card-label">
             SOURCE TEXT
           </div>
@@ -401,16 +353,12 @@ function Summary() {
           <div className="source-text">
             {documentData.text}
           </div>
-
         </section>
-
-        
 
         <div className="summary-footer">
           This summary was generated by Marginal AI
           using the content of your document.
         </div>
-
       </main>
     </div>
   );

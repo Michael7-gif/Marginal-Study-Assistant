@@ -1,6 +1,8 @@
+
 .dashboard-page {
   min-height: 100vh;
-  background: var(--bg);
+  background: #000000;
+  color: #ffffff;
 }
 
 .dashboard-content {
@@ -9,6 +11,7 @@
   padding: 46px 0 56px;
 }
 
+/* Header */
 .dashboard-header {
   display: flex;
   align-items: flex-end;
@@ -20,7 +23,7 @@
 .dashboard-eyebrow,
 .dashboard-label {
   display: block;
-  color: var(--accent);
+  color: #999999;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -29,6 +32,7 @@
 
 .dashboard-header h1 {
   margin: 7px 0 8px;
+  color: #ffffff;
   font-size: clamp(30px, 4vw, 44px);
   line-height: 1.05;
   letter-spacing: -0.035em;
@@ -36,72 +40,83 @@
 
 .dashboard-header p {
   margin: 0;
-  color: var(--muted);
+  color: #999999;
   font-size: 14px;
   line-height: 1.6;
 }
 
+/* Buttons */
 .dashboard-new-document,
 .dashboard-primary-button,
 .dashboard-focus-button {
-  border: 0;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #08111b;
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #000000;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.16s ease, opacity 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    opacity 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .dashboard-new-document:hover,
 .dashboard-primary-button:hover,
 .dashboard-focus-button:hover {
   transform: translateY(-1px);
-  opacity: 0.94;
+  opacity: 0.9;
 }
 
 .dashboard-new-document {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   padding: 11px 15px;
   white-space: nowrap;
 }
 
+/* Main cards */
 .dashboard-focus-card,
 .dashboard-welcome-card,
 .dashboard-library-card,
 .dashboard-progress-card {
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
+/* Continue studying */
 .dashboard-focus-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   padding: 20px;
   margin-bottom: 30px;
+  border-radius: 10px;
 }
 
 .dashboard-focus-icon,
-.dashboard-welcome-icon,
-.dashboard-tool-icon,
 .dashboard-document-icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 11px;
-  background: var(--panel-2);
-  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #333333;
+  border-radius: 5px;
+  background: #111111;
+  color: #ffffff;
 }
 
 .dashboard-focus-icon {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
 }
 
 .dashboard-focus-body {
@@ -112,6 +127,7 @@
 .dashboard-focus-body h2,
 .dashboard-welcome-card h2 {
   margin: 5px 0 4px;
+  color: #ffffff;
   font-size: 19px;
   letter-spacing: -0.02em;
 }
@@ -119,7 +135,7 @@
 .dashboard-focus-body p,
 .dashboard-welcome-card p {
   margin: 0;
-  color: var(--muted);
+  color: #888888;
   font-size: 13px;
 }
 
@@ -127,21 +143,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
   padding: 10px 13px;
   white-space: nowrap;
 }
 
+/* Welcome */
 .dashboard-welcome-card {
   display: flex;
   gap: 18px;
   padding: 26px;
   margin-bottom: 30px;
-}
-
-.dashboard-welcome-icon {
-  width: 48px;
-  height: 48px;
 }
 
 .dashboard-welcome-card p {
@@ -160,7 +171,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   padding: 10px 14px;
 }
 
@@ -169,19 +179,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: #999999;
   cursor: pointer;
   font-size: 13px;
 }
 
 .dashboard-link-button:hover,
 .dashboard-view-all:hover {
-  color: var(--text);
+  color: #ffffff;
 }
 
+/* Study tools */
 .dashboard-tools {
   margin-bottom: 30px;
 }
@@ -200,6 +210,7 @@
 
 .dashboard-section-heading h2 {
   margin: 5px 0 0;
+  color: #ffffff;
   font-size: 18px;
   letter-spacing: -0.02em;
 }
@@ -213,33 +224,30 @@
 .dashboard-tool-card {
   display: flex;
   align-items: center;
-  gap: 12px;
   min-width: 0;
   width: 100%;
   padding: 15px;
   text-align: left;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 13px;
-  color: var(--text);
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  color: #ffffff;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .dashboard-tool-card:hover:not(:disabled) {
-  background: var(--panel-2);
-  border-color: var(--border);
+  background: #151515;
+  border-color: #ffffff;
   transform: translateY(-1px);
 }
 
 .dashboard-tool-card:disabled {
   opacity: 0.48;
   cursor: not-allowed;
-}
-
-.dashboard-tool-icon {
-  width: 38px;
-  height: 38px;
 }
 
 .dashboard-tool-copy {
@@ -249,24 +257,19 @@
 
 .dashboard-tool-copy h3 {
   margin: 0 0 4px;
+  color: #ffffff;
   font-size: 13px;
 }
 
 .dashboard-tool-copy p {
   margin: 0;
-  color: var(--muted-2);
+  color: #777777;
   font-size: 11.5px;
   line-height: 1.45;
 }
 
-.dashboard-bottom-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
-  gap: 14px;
-}
-
-.dashboard-library-card,
-.dashboard-progress-card {
+/* Library */
+.dashboard-library-card {
   min-width: 0;
   padding: 20px;
 }
@@ -279,25 +282,24 @@
 .dashboard-document-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   width: 100%;
   min-width: 0;
+  gap: 12px;
   padding: 12px;
   border: 1px solid transparent;
-  border-radius: 11px;
-  background: var(--panel-2);
-  color: var(--text);
+  border-radius: 5px;
+  background: #111111;
+  color: #ffffff;
   text-align: left;
   cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease;
 }
 
 .dashboard-document-item:hover {
-  border-color: var(--border);
-}
-
-.dashboard-document-icon {
-  width: 38px;
-  height: 38px;
+  background: #151515;
+  border-color: #ffffff;
 }
 
 .dashboard-document-copy {
@@ -308,6 +310,7 @@
 .dashboard-document-copy h3 {
   overflow: hidden;
   margin: 0 0 4px;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -315,17 +318,18 @@
 }
 
 .dashboard-document-copy span {
-  color: var(--muted-2);
+  color: #777777;
   font-size: 11.5px;
 }
 
+/* Empty library */
 .dashboard-empty-library {
   display: grid;
   min-height: 180px;
   place-items: center;
   align-content: center;
   gap: 8px;
-  color: var(--muted-2);
+  color: #777777;
   text-align: center;
 }
 
@@ -334,13 +338,10 @@
   font-size: 13px;
 }
 
-.dashboard-empty-library button {
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+/* Progress */
+.dashboard-progress-card {
+  min-width: 0;
+  padding: 20px;
 }
 
 .dashboard-progress-stats {
@@ -355,46 +356,34 @@
   justify-content: space-between;
   gap: 15px;
   padding-bottom: 11px;
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom: 1px solid #222222;
 }
 
 .dashboard-progress-stats strong {
+  color: #ffffff;
   font-size: 24px;
   letter-spacing: -0.03em;
 }
 
 .dashboard-progress-stats span {
-  color: var(--muted);
+  color: #888888;
   font-size: 12px;
   text-align: right;
-}
-
-.dashboard-icon-button {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
-  color: var(--muted);
-  cursor: pointer;
 }
 
 .dashboard-progress-button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: #ffffff;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
 }
 
+/* Tablet */
 @media (max-width: 1100px) {
   .dashboard-content {
     width: calc(100% - 44px);
@@ -403,12 +392,9 @@
   .dashboard-tool-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .dashboard-bottom-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
+/* Smaller screens */
 @media (max-width: 800px) {
   .dashboard-content {
     width: calc(100% - 36px);
@@ -437,12 +423,12 @@
     padding: 22px;
   }
 
-  .dashboard-library-card,
-  .dashboard-progress-card {
+  .dashboard-library-card {
     padding: 18px;
   }
 }
 
+/* Mobile */
 @media (max-width: 600px) {
   .dashboard-content {
     width: calc(100% - 28px);
@@ -466,6 +452,12 @@
     gap: 12px;
     padding: 17px;
     margin-bottom: 22px;
+    border-radius: 8px;
+  }
+
+  .dashboard-focus-icon {
+    width: 40px;
+    height: 40px;
   }
 
   .dashboard-focus-body {
@@ -477,15 +469,8 @@
   }
 
   .dashboard-welcome-card {
-    flex-direction: column;
-    gap: 14px;
     padding: 20px;
     margin-bottom: 22px;
-  }
-
-  .dashboard-welcome-icon {
-    width: 42px;
-    height: 42px;
   }
 
   .dashboard-welcome-card h2 {
@@ -531,17 +516,18 @@
     padding: 13px;
   }
 
-  .dashboard-bottom-grid {
-    gap: 10px;
-  }
-
-  .dashboard-library-card,
-  .dashboard-progress-card {
+  .dashboard-library-card {
     padding: 16px;
   }
 
   .dashboard-document-item {
     padding: 10px;
+    gap: 10px;
+  }
+
+  .dashboard-document-icon {
+    width: 36px;
+    height: 36px;
   }
 
   .dashboard-progress-stats strong {
@@ -549,6 +535,7 @@
   }
 }
 
+/* Small phones */
 @media (max-width: 400px) {
   .dashboard-content {
     width: calc(100% - 20px);
@@ -573,14 +560,8 @@
     padding: 15px;
   }
 
-  .dashboard-focus-icon {
-    width: 38px;
-    height: 38px;
-  }
-
-  .dashboard-welcome-icon {
-    width: 38px;
-    height: 38px;
+  .dashboard-focus-card {
+    border-radius: 7px;
   }
 
   .dashboard-focus-body h2,
@@ -590,11 +571,6 @@
 
   .dashboard-tool-card {
     padding: 11px;
-  }
-
-  .dashboard-tool-icon {
-    width: 34px;
-    height: 34px;
   }
 
   .dashboard-tool-copy h3 {
@@ -619,6 +595,7 @@
   }
 }
 
+/* Very small phones */
 @media (max-width: 320px) {
   .dashboard-content {
     width: calc(100% - 16px);
@@ -637,13 +614,11 @@
     font-size: 16px;
   }
 
-  .dashboard-library-card,
-  .dashboard-progress-card {
+  .dashboard-library-card {
     padding: 13px;
   }
 
   .dashboard-document-item {
-    gap: 8px;
     padding: 8px;
   }
 
@@ -664,3 +639,4 @@
     font-size: 10.5px;
   }
 }
+

@@ -1,4 +1,6 @@
+
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
@@ -6,24 +8,17 @@ import { useAuth } from "../context/AuthContext";
 import "./Auth.css";
 
 export default function Login() {
-  const {
-    login,
-  } = useAuth();
+  const { login } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [email, setEmail] =
-    useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [password, setPassword] =
-    useState("");
-
-  const [error, setError] =
-    useState("");
-
-  const [busy, setBusy] =
-    useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const pageMessage = location.state?.message || "";
 
@@ -31,23 +26,16 @@ export default function Login() {
     event.preventDefault();
 
     setError("");
-
     setBusy(true);
 
     try {
-      await login(
-        email.trim().toLowerCase(),
-        password
-      );
+      await login(email.trim().toLowerCase(), password);
 
       navigate("/", {
         replace: true,
       });
     } catch (err) {
-      setError(
-        err?.message ||
-          "Could not sign you in."
-      );
+      setError(err?.message || "Could not sign you in.");
     } finally {
       setBusy(false);
     }
@@ -56,42 +44,25 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-
         <div className="auth-brand">
-          <div className="auth-mark">
-            M
-          </div>
-
-          <strong>
-            Marginal
-          </strong>
+          <strong>Marginal</strong>
         </div>
 
-        <h1>
-          Welcome back
-        </h1>
+        <h1>Welcome back</h1>
 
         <p>
-          Sign in to access your
-          private study library.
+          Sign in to access your private study library.
         </p>
 
-        <form
-          className="auth-form"
-          onSubmit={submit}
-        >
+        <form className="auth-form" onSubmit={submit}>
           <label>
             Email
 
             <input
               type="email"
               value={email}
-              onChange={(event) =>
-                setEmail(
-                  event.target.value
-                )
-              }
-              placeholder="you@example.com"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder=""
               autoComplete="email"
               required
             />
@@ -106,22 +77,43 @@ export default function Login() {
           <label>
             Password
 
-            <input
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(
-                  event.target.value
-                )
-              }
-              placeholder="Your password"
-              autoComplete="current-password"
-              required
-            />
+            <div className="auth-password-wrapper">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
+                placeholder=""
+                autoComplete="current-password"
+                required
+              />
+
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() =>
+                  setShowPassword((visible) => !visible)
+                }
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+              >
+                {showPassword ? (
+                  <EyeOff size={18} />
+                ) : (
+                  <Eye size={18} />
+                )}
+              </button>
+            </div>
           </label>
 
           <div className="auth-forgot">
-            <Link to="/forgot-password">Forgot password?</Link>
+            <Link to="/forgot-password">
+              Forgot password?
+            </Link>
           </div>
 
           {error && (
@@ -135,9 +127,7 @@ export default function Login() {
             className="auth-button"
             disabled={busy}
           >
-            {busy
-              ? "Signing in…"
-              : "Sign in"}
+            {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
 

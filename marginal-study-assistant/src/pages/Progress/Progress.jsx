@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  BookOpen,
-  CheckCircle2,
-  ClipboardCheck,
-  FileText,
-  RotateCcw,
-  Target,
-  TrendingUp,
-  Trophy,
-} from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { clearProgress, getProgressStats } from "../../services/progressService";
 import "./Progress.css";
@@ -31,12 +22,22 @@ function Progress() {
   const [stats, setStats] = useState(EMPTY_STATS);
   const [resetting, setResetting] = useState(false);
 
-  const loadProgress = () => setStats(getProgressStats());
+  const loadProgress = () => {
+    setStats(getProgressStats());
+  };
 
   useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+
     loadProgress();
+
     window.addEventListener("storage", loadProgress);
     window.addEventListener("progressUpdated", loadProgress);
+
     return () => {
       window.removeEventListener("storage", loadProgress);
       window.removeEventListener("progressUpdated", loadProgress);
@@ -44,15 +45,27 @@ function Progress() {
   }, []);
 
   const recentQuizzes = useMemo(
-    () => [...stats.quizzes].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8),
+    () =>
+      [...stats.quizzes]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 8),
     [stats.quizzes]
   );
 
   const formatDate = (date) => {
     if (!date) return "Unknown date";
+
     const value = new Date(date);
-    if (Number.isNaN(value.getTime())) return "Unknown date";
-    return value.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
+
+    if (Number.isNaN(value.getTime())) {
+      return "Unknown date";
+    }
+
+    return value.toLocaleDateString("en-NG", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   const getScoreMessage = (score) => {
@@ -64,9 +77,11 @@ function Progress() {
 
   const handleReset = () => {
     if (resetting) return;
+
     const confirmed = window.confirm(
       "Reset all study progress? This will permanently remove your quiz history, document progress, and study sessions from this browser."
     );
+
     if (!confirmed) return;
 
     setResetting(true);
@@ -75,22 +90,23 @@ function Progress() {
     setResetting(false);
   };
 
-  const statCards = [
-    [ClipboardCheck, "Total Quizzes", stats.totalQuizzes],
-    [Target, "Questions Answered", stats.totalQuestions],
-    [TrendingUp, "Average Score", `${stats.averageScore}%`],
-    [BookOpen, "Completed Documents", stats.completedDocuments],
-  ];
-
   return (
     <div className="progress-page">
       <header className="progress-header">
-        <div>
+        <div className="progress-heading-copy">
           <div className="progress-eyebrow">STUDY PROGRESS</div>
           <h1>Your Progress</h1>
-          <p>See what you have completed and how your quiz performance is changing over time.</p>
+          <p>
+            Track your study activity, quiz results, and document completion.
+          </p>
         </div>
-        <button type="button" className="progress-reset-button" onClick={handleReset} disabled={resetting}>
+
+        <button
+          type="button"
+          className="progress-reset-button"
+          onClick={handleReset}
+          disabled={resetting}
+        >
           <RotateCcw size={15} />
           {resetting ? "Resetting..." : "Reset progress"}
         </button>
@@ -98,15 +114,25 @@ function Progress() {
 
       <main className="progress-content">
         <section className="progress-overview" aria-label="Progress overview">
-          {statCards.map(([Icon, label, value]) => (
-            <article className="progress-stat-card" key={label}>
-              <div className="progress-stat-icon"><Icon size={19} /></div>
-              <div className="progress-stat-copy">
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            </article>
-          ))}
+          <article className="progress-stat-card">
+            <span className="progress-stat-label">TOTAL QUIZZES</span>
+            <strong>{stats.totalQuizzes}</strong>
+          </article>
+
+          <article className="progress-stat-card">
+            <span className="progress-stat-label">QUESTIONS ANSWERED</span>
+            <strong>{stats.totalQuestions}</strong>
+          </article>
+
+          <article className="progress-stat-card">
+            <span className="progress-stat-label">AVERAGE SCORE</span>
+            <strong>{stats.averageScore}%</strong>
+          </article>
+
+          <article className="progress-stat-card">
+            <span className="progress-stat-label">DOCUMENTS COMPLETED</span>
+            <strong>{stats.completedDocuments}</strong>
+          </article>
         </section>
 
         <section className="progress-performance-card">
@@ -114,21 +140,39 @@ function Progress() {
             <div>
               <span className="progress-section-label">PERFORMANCE</span>
               <h2>Your learning performance</h2>
-              <p>Your score is calculated from all completed quiz questions.</p>
+              <p>
+                Your average score is calculated from all completed quiz
+                questions.
+              </p>
             </div>
+
             <div className="progress-performance-score">
-              <Trophy size={21} />
               <strong>{stats.averageScore}%</strong>
             </div>
           </div>
 
-          <div className="progress-performance-track" aria-label={`Average score ${stats.averageScore}%`}>
-            <div className="progress-performance-fill" style={{ width: `${Math.min(100, Math.max(0, stats.averageScore))}%` }} />
+          <div
+            className="progress-performance-track"
+            aria-label={`Average score ${stats.averageScore}%`}
+          >
+            <div
+              className="progress-performance-fill"
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(0, Number(stats.averageScore) || 0)
+                )}%`,
+              }}
+            />
           </div>
 
           <div className="progress-performance-footer">
             <span>{getScoreMessage(stats.averageScore)}</span>
-            <span>{stats.correctAnswers} correct out of {stats.totalQuestions} questions</span>
+
+            <span>
+              {stats.correctAnswers} correct out of {stats.totalQuestions}{" "}
+              questions
+            </span>
           </div>
         </section>
 
@@ -139,31 +183,55 @@ function Progress() {
               <h2>Recent quizzes</h2>
               <p>Your latest completed quiz results.</p>
             </div>
+
             {stats.totalQuizzes > 0 && (
-              <span className="progress-count-pill">{stats.totalQuizzes} total</span>
+              <span className="progress-count">
+                {stats.totalQuizzes}{" "}
+                {stats.totalQuizzes === 1 ? "quiz" : "quizzes"}
+              </span>
             )}
           </div>
 
           {recentQuizzes.length === 0 ? (
             <div className="progress-empty-state">
-              <div className="progress-empty-icon"><ClipboardCheck size={22} /></div>
               <h3>No quizzes completed yet</h3>
-              <p>Complete a quiz from one of your documents and your results will appear here.</p>
-              <button type="button" onClick={() => navigate("/quiz")}>Take your first quiz</button>
+
+              <p>
+                Complete a quiz from one of your documents and your results
+                will appear here.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/quiz")}
+              >
+                Take your first quiz
+              </button>
             </div>
           ) : (
             <div className="progress-quiz-list">
               {recentQuizzes.map((quiz, index) => (
-                <article className="progress-quiz-item" key={quiz.id || `${quiz.date}-${index}`}>
-                  <div className={`progress-quiz-icon ${Number(quiz.percentage) >= 60 ? "good" : ""}`}>
-                    {Number(quiz.percentage) >= 60 ? <CheckCircle2 size={18} /> : <ClipboardCheck size={18} />}
-                  </div>
+                <article
+                  className="progress-quiz-item"
+                  key={quiz.id || `${quiz.date}-${index}`}
+                >
                   <div className="progress-quiz-info">
-                    <strong>{quiz.documentName || "Untitled Document"}</strong>
-                    <span>{quiz.difficulty || "Mixed"} · {quiz.questionType || "Mixed"} · {formatDate(quiz.date)}</span>
+                    <strong>
+                      {quiz.documentName || "Untitled Document"}
+                    </strong>
+
+                    <span>
+                      {quiz.difficulty || "Mixed"} ·{" "}
+                      {quiz.questionType || "Mixed"} ·{" "}
+                      {formatDate(quiz.date)}
+                    </span>
                   </div>
+
                   <div className="progress-quiz-score">
-                    <strong>{quiz.score}/{quiz.totalQuestions}</strong>
+                    <strong>
+                      {quiz.score}/{quiz.totalQuestions}
+                    </strong>
+
                     <span>{quiz.percentage}%</span>
                   </div>
                 </article>
@@ -175,33 +243,72 @@ function Progress() {
         <section className="progress-section">
           <div className="progress-section-heading">
             <div>
-              <span className="progress-section-label">DOCUMENT PROGRESS</span>
+              <span className="progress-section-label">
+                DOCUMENT PROGRESS
+              </span>
               <h2>Study completion</h2>
-              <p>Documents you have marked as completed.</p>
+              <p>
+                Documents you have studied and marked as completed.
+              </p>
             </div>
           </div>
 
           {stats.documents.length === 0 ? (
             <div className="progress-empty-state compact">
-              <div className="progress-empty-icon"><FileText size={22} /></div>
+              <div className="progress-document-empty-icon">
+                <FileText size={22} strokeWidth={1.8} />
+              </div>
+
               <h3>No document progress yet</h3>
-              <p>Your document completion progress will appear here when you study and mark documents as completed.</p>
+
+              <p>
+                Your document completion progress will appear here when you
+                study and mark documents as completed.
+              </p>
             </div>
           ) : (
             <div className="progress-document-list">
               {stats.documents.map((document, index) => {
-                const percentage = Math.min(100, Math.max(0, Number(document.progressPercentage) || 0));
+                const percentage = Math.min(
+                  100,
+                  Math.max(
+                    0,
+                    Number(document.progressPercentage) || 0
+                  )
+                );
+
                 return (
-                  <article className="progress-document-item" key={document.documentId || index}>
+                  <article
+                    className="progress-document-item"
+                    key={document.documentId || index}
+                  >
                     <div className="progress-document-top">
-                      <div>
-                        <strong>{document.documentName || "Untitled Document"}</strong>
-                        <span>{document.completed ? "Completed" : "In progress"}</span>
+                      <div className="progress-document-name">
+                        <div className="progress-document-icon">
+                          <FileText size={19} strokeWidth={1.8} />
+                        </div>
+
+                        <div>
+                          <strong>
+                            {document.documentName || "Untitled Document"}
+                          </strong>
+
+                          <span>
+                            {document.completed
+                              ? "Completed"
+                              : "In progress"}
+                          </span>
+                        </div>
                       </div>
+
                       <strong>{percentage}%</strong>
                     </div>
+
                     <div className="progress-document-track">
-                      <div className="progress-document-fill" style={{ width: `${percentage}%` }} />
+                      <div
+                        className="progress-document-fill"
+                        style={{ width: `${percentage}%` }}
+                      />
                     </div>
                   </article>
                 );

@@ -1,12 +1,7 @@
+
 import { useEffect, useState } from "react";
+import { FileText, FileUp, Upload, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  FileText,
-  FileUp,
-  Clock,
-  Upload,
-  Trash2,
-} from "lucide-react";
 import {
   deleteDocument,
   listDocuments,
@@ -225,7 +220,6 @@ function MyDocuments() {
                     </span>
 
                     <span className="document-date">
-                      <Clock size={13} />
                       {date(doc.uploadedAt)}
                     </span>
                   </div>
@@ -260,3 +254,4 @@ function MyDocuments() {
 }
 
 export default MyDocuments;
+

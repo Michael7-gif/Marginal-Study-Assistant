@@ -2,12 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  BookOpen,
   CheckCircle2,
   Circle,
   AlertCircle,
   XCircle,
   RotateCcw,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -43,8 +43,22 @@ export default function Quiz() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   const [error, setError] = useState("");
-
   useEffect(() => {
+  if (quizStarted && questions.length > 0 && !quizSubmitted) {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "smooth",
+    });
+  }
+}, [quizStarted, questions.length, quizSubmitted]);
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+
     loadCurrentDocument();
   }, []);
 
@@ -156,12 +170,18 @@ export default function Quiz() {
         throw new Error("No quiz questions were generated.");
       }
 
-      setQuestions(generatedQuestions);
-      setAnswers({});
-      setCurrentQuestion(0);
-      setQuizStarted(true);
-      setReviewMode(false);
-      setQuizSubmitted(false);
+       setQuestions(generatedQuestions);
+setAnswers({});
+setCurrentQuestion(0);
+setQuizStarted(true);
+setReviewMode(false);
+setQuizSubmitted(false);
+
+window.scrollTo({
+  top: 0,
+  left: 0,
+  behavior: "smooth",
+});
 
       setGenerationProgress(0);
       setGenerationStatus("");
@@ -559,7 +579,7 @@ export default function Quiz() {
 
             <button
               className="quiz-secondary-button"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/")}
             >
               Back to Dashboard
             </button>
@@ -612,7 +632,6 @@ export default function Quiz() {
             </div>
 
             <div>
-              <BookOpen size={20} />
               <strong>{questions.length}</strong>
               <span>Total</span>
             </div>
@@ -943,7 +962,7 @@ export default function Quiz() {
         {documentData && (
           <div className="quiz-document-card">
             <div className="quiz-document-icon">
-              <BookOpen size={22} />
+              <FileText size={22} />
             </div>
 
             <div>
@@ -1017,8 +1036,7 @@ export default function Quiz() {
               <button
                 type="button"
                 className={`quiz-choice-large ${
-                  questionType ===
-                  "multiple-choice"
+                  questionType === "multiple-choice"
                     ? "selected"
                     : ""
                 }`}
@@ -1153,4 +1171,3 @@ export default function Quiz() {
     </div>
   );
 }
-
