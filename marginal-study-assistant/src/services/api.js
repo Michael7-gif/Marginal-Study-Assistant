@@ -1,12 +1,10 @@
-const DEFAULT_LOCAL_API_URL =
+const DEFAULT_API_URL =
   "https://marginal-study-assistant-api.onrender.com";
 
-export const API_URL = import.meta.env.PROD
-  ? ""
-  : (
-      import.meta.env.VITE_API_URL ||
-      DEFAULT_LOCAL_API_URL
-    ).replace(/\/$/, "");
+export const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  DEFAULT_API_URL
+).replace(/\/$/, "");
 
 async function request(path, options = {}) {
   const requestUrl = `${API_URL}${path}`;
@@ -31,10 +29,7 @@ async function request(path, options = {}) {
       },
     });
   } catch (error) {
-    console.error(
-      "Marginal API connection error:",
-      error
-    );
+    console.error("Marginal API connection error:", error);
 
     throw new Error(
       "Could not connect to Marginal's backend."

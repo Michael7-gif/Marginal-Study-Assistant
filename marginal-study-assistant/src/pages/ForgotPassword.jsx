@@ -87,7 +87,7 @@ export default function ForgotPassword() {
       <form className="auth-form" onSubmit={requestCode}>
         <label>
           Email
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="" autoComplete="email" required />
         </label>
         {error && <div className="auth-error">{error}</div>}
         <button type="submit" className="auth-button" disabled={busy}>{busy ? "Sending code…" : "Send verification code"}</button>
