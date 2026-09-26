@@ -151,6 +151,8 @@ router.post("/logout", async (req, res) => {
 });
 
 router.post("/forgot-password", async (req, res) => {
+  console.log("FORGOT PASSWORD REQUEST:", req.body?.email);
+
   try {
     const email = normalizeEmail(req.body?.email);
 
