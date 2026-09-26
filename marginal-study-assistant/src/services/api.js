@@ -1,10 +1,4 @@
-const DEFAULT_API_URL =
-  "https://marginal-study-assistant-api.onrender.com";
-
-export const API_URL = (
-  import.meta.env.VITE_API_URL ||
-  DEFAULT_API_URL
-).replace(/\/$/, "");
+const API_URL = "";
 
 async function request(path, options = {}) {
   const requestUrl = `${API_URL}${path}`;
