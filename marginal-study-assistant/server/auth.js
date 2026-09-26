@@ -11,7 +11,7 @@ function cookieOptions(maxAge) {
   return [
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",    
+    isProduction ? "SameSite=None" : "SameSite=Lax",
     `Max-Age=${maxAge}`,
     isProduction ? "Secure" : "",
   ]
